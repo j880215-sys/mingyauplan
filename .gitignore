@@ -1,0 +1,19 @@
+# 本機套件與建置產物
+node_modules/
+dist/
+test/shots/
+__pycache__/
+
+# 個案資料與含個資可能的檔案：一律不上傳
+*年度/
+個案存檔/
+docs/範例_*.html
+*.docx
+*.pdf
+
+# Logo 原始檔（程式用的是 src/assets 裡的裁切檔）
+明曜長照LOGO-02.jpg
+明曜長照LOGO-02.png
+
+# 本機捷徑
+*.lnk
