@@ -55,22 +55,25 @@ var UI = (function () {
   }
   var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   function download(filename, text, mime) {
-    var blob = new Blob([text], { type: mime || 'application/json' }), url = URL.createObjectURL(blob);
+    var blob = text instanceof Blob ? text : new Blob([text], { type: mime || 'application/json' }), url = URL.createObjectURL(blob);
     var a = h('a', { href: url, download: filename }); document.body.appendChild(a); a.click();
     setTimeout(function () { a.remove(); URL.revokeObjectURL(url); }, 1500);
   }
   /* 交付多個檔案：iPad／iPhone 走分享選單（可選「儲存到檔案」）；其他裝置逐一下載 */
+  function fileObjs(files) {
+    try { return files.map(function (f) { return new File([f.blob || f.text], f.name, { type: f.mime }); }); } catch (e) { return null; }
+  }
+  function canShareFiles(files) { var o = fileObjs(files); return !!(isIOS && o && navigator.canShare && navigator.canShare({ files: o })); }
   function deliverFiles(files, doneMsg) {
-    var objs = null;
-    try { objs = files.map(function (f) { return new File([f.text], f.name, { type: f.mime }); }); } catch (e) { objs = null; }
+    var objs = fileObjs(files);
     if (isIOS && objs && navigator.canShare && navigator.canShare({ files: objs })) {
       navigator.share({ files: objs }).then(function () { toast(doneMsg || '已交給分享選單'); }, function () { });
       return;
     }
-    files.forEach(function (f, i) { setTimeout(function () { download(f.name, f.text, f.mime); }, i * 400); });
+    files.forEach(function (f, i) { setTimeout(function () { download(f.name, f.blob || f.text, f.mime); }, i * 400); });
     toast(doneMsg || '已下載 ' + files.length + ' 個檔案');
   }
-  /* 個案資料可內嵌在「訪視評估表.html」裡，匯入時從中取出 */
+  /* 個案資料夾帶在存出的 PDF（新版）或「訪視評估表.html」（舊版）裡，匯入時從中取出 */
   function parseCaseFile(text) {
     text = String(text || '').replace(/^﻿/, '');
     if (/^\s*</.test(text)) {
@@ -81,12 +84,20 @@ var UI = (function () {
     return JSON.parse(text);
   }
   function pickFile(cb) {
-    var inp = h('input', { type: 'file', accept: '.html,.htm,.json,text/html,application/json', style: 'display:none' });
+    var inp = h('input', { type: 'file', accept: '.pdf,.html,.htm,.json,application/pdf,text/html,application/json', style: 'display:none' });
     inp.addEventListener('change', function () {
       var file = inp.files && inp.files[0]; if (!file) return;
       var rd = new FileReader();
-      rd.onload = function () { try { cb(parseCaseFile(rd.result)); } catch (e) { toast('這個檔案無法讀取，請選擇本程式存出的 html 檔（訪視評估表或計畫更新異動）'); } inp.remove(); };
-      rd.readAsText(file);
+      rd.onload = function () {
+        try {
+          var b = new Uint8Array(rd.result), obj;
+          if (b[0] === 0x25 && b[1] === 0x50 && b[2] === 0x44 && b[3] === 0x46) { obj = PDF.extractData(rd.result); if (!obj) throw new Error('no data'); }   /* %PDF */
+          else obj = parseCaseFile(new TextDecoder('utf-8').decode(b));
+          cb(obj);
+        } catch (e) { toast('這個檔案無法讀取，請選擇本程式存出的 PDF（訪視評估表、計畫內容）或舊版 html 檔'); }
+        inp.remove();
+      };
+      rd.readAsArrayBuffer(file);
     });
     document.body.appendChild(inp); inp.click();
   }
@@ -415,5 +426,5 @@ var UI = (function () {
   }
 
   return { h: h, clear: clear, uid: uid, store: store, toast: toast, copyText: copyText, download: download, pickFile: pickFile, dialog: dialog, confirmBox: confirmBox,
-    field: field, control: control, deliverFiles: deliverFiles, parseCaseFile: parseCaseFile, isIOS: isIOS, textInput: textInput, textareaInput: textareaInput, singleInput: singleInput, multiInput: multiInput, hasValue: hasValue, opts: opts, autoGrow: autoGrow, bodySvg: bodySvg, painSvg: painSvg, MUSCLE_LEGEND: MUSCLE_LEGEND };
+    field: field, control: control, deliverFiles: deliverFiles, canShareFiles: canShareFiles, parseCaseFile: parseCaseFile, isIOS: isIOS, textInput: textInput, textareaInput: textareaInput, singleInput: singleInput, multiInput: multiInput, hasValue: hasValue, opts: opts, autoGrow: autoGrow, bodySvg: bodySvg, painSvg: painSvg, MUSCLE_LEGEND: MUSCLE_LEGEND };
 })();

@@ -6,7 +6,7 @@ src = root / 'src'
 out_dir = root / 'dist' / '照顧計畫產生器'
 out_dir.mkdir(parents=True, exist_ok=True)
 css = (src / 'style.css').read_text(encoding='utf8')
-js = '\n'.join((src / f).read_text(encoding='utf8') for f in ['catalog.js', 'data.js', 'schema.js', 'narrative.js', 'ui.js', 'app.js'])
+js = '\n'.join((src / f).read_text(encoding='utf8') for f in ['vendor/html2canvas.min.js', 'pdf.js', 'catalog.js', 'data.js', 'schema.js', 'narrative.js', 'ui.js', 'app.js'])
 # 明曜 logo（src/assets，由原始 logo 裁切縮小）以 data URI 內嵌，維持單一離線檔
 import base64
 for key, name in (('__LOGO_FULL__', 'logo-full.png'), ('__LOGO_MARK__', 'logo-mark.png')):

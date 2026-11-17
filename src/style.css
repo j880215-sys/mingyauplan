@@ -288,6 +288,9 @@ textarea.inp.outbox { width: 100%; min-height: 460px; font-size: 15.5px; line-he
   .dialog { border-radius: 16px; }
 }
 
+/* PDF 產生進度 */
+.pbar { height: 8px; border-radius: 4px; background: var(--fill); overflow: hidden; }
+.pbar i { display: block; height: 100%; width: 0; background: var(--accent); border-radius: 4px; transition: width .25s var(--ease); }
 /* ---------- 觸控裝置（iPhone、iPad）：小按鈕加大到好點的尺寸 ---------- */
 @media (pointer: coarse) {
   .btn.sm { min-height: 40px; }

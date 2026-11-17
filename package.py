@@ -13,11 +13,11 @@ for y in (roc_year, roc_year + 1):
 old = d / '個案存檔' / '請把匯出的個案檔放在這裡.txt'
 if old.exists(): old.unlink()
 (d / '個案存檔' / '說明.txt').write_text(
-    '按程式右上角「存檔」時，會依訪視日期把兩個檔案放進「○○年度／○月」資料夾：\r\n'
-    '　○○○訪視評估表.html：可列印，也可以用程式首頁「匯入訪視評估表檔」重新開啟編輯\r\n'
-    '　○○○計畫內容.txt：計畫目標與計畫執行規劃的文字\r\n\r\n'
+    '按程式右上角「存檔」時，會依訪視日期把兩個 PDF 放進「○○年度／○月」資料夾：\r\n'
+    '　○○○訪視評估表.pdf：可列印，也可以用程式首頁「匯入存檔」重新開啟編輯\r\n'
+    '　○○○計畫內容.pdf：計畫目標與計畫執行規劃的文字\r\n\r\n'
     '電腦版 Chrome／Edge：第一次存檔時選擇這個「個案存檔」資料夾，之後會自動分類。\r\n'
-    'iPad：會跳出分享選單，請選「儲存到檔案」再自行選資料夾。\r\n\r\n'
+    'iPad／iPhone：PDF 產生後按「分享／儲存」，選「儲存到檔案」再自行選資料夾。\r\n\r\n'
     '檔案含有個資，請依單位規定保管，勿用通訊軟體或公開雲端傳送。\r\n', encoding='utf-8-sig')
 readme = (root / 'docs' / '使用說明.txt').read_text(encoding='utf8').replace('{ver}', ver)
 (d / '使用說明.txt').write_text(readme, encoding='utf-8-sig', newline='\r\n')

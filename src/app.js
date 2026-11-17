@@ -85,7 +85,7 @@ var APP = (function () {
     E.save.className = 'savestate' + (s === 'fail' || !store.ok ? ' warn' : '');
     E.save.textContent = !store.ok || s === 'fail' ? '此瀏覽器無法自動儲存，離開前請按「存檔」' : s === 'saving' ? '儲存中…' : '已自動儲存在這台裝置';
   }
-  /* ---- 存檔的兩個檔案：「○○訪視評估表.html」（可列印，也可匯入回程式）與「○○計畫內容.txt」 ---- */
+  /* ---- 訪視評估表版面：存檔的 PDF、列印、舊版 html 共用 ---- */
   /* ---- 訪視評估表（存檔 html 與列印共用的版面）：A4 公文表格風格，樣式全部限定在 .vf 內 ---- */
   var KAI = '"DFKai-SB","BiauKai","標楷體","KaiTi","Kaiti TC","STKaiti","Noto Serif TC",serif';
   var FORM_CSS = '.vf{--ink:#1c2733;--brand:#1f4e79;--head:#dbeafa;--headline:#9cc3e8;--tint:#f2f7fc;--line:#a9bccf;--soft:#d7e2ec;--mute:#8693a0;font:10.5pt/1.6 "Microsoft JhengHei","微軟正黑體","PingFang TC","Noto Sans TC",sans-serif;color:var(--ink);-webkit-print-color-adjust:exact;print-color-adjust:exact}' +
@@ -157,19 +157,42 @@ var APP = (function () {
       '<div class="sheet"><div class="vf">' + buildFormDom(rec).innerHTML + '</div></div>' +
       '\n<script type="application/json" id="cpgen-data">' + data + '<\/script>\n</body></html>\n';
   }
-  function planTxt(rec) {
-    var t = outTexts(rec), f = rec.f, lines;
-    if (isUpd(rec)) lines = [caseName(rec) + '　計畫更新／異動', ORG, '日期：' + (NAR.rocLong(f.visitDate) || '未填') + '　個管員：' + nz(f.cmName), '',
-      '【計畫目標欄】（貼在 CMS 計畫目標欄的最上方，原內容保留在下面）', t.goal, '', '【計畫執行規劃欄】（貼在 CMS 計畫執行規劃欄的最上方）', t.plan];
-    else lines = [caseName(rec) + '　計畫內容', ORG, '訪視日：' + (NAR.rocLong(f.visitDate) || '未填') + '　個管員：' + nz(f.cmName), '',
-      '【計畫目標】（貼到 CMS 計畫目標欄）', t.goal, '', '【計畫執行規劃】（貼到 CMS 計畫執行規劃欄）', t.plan];
-    arr(rec.changes).forEach(function (c, i) { if (i === 0) lines.push('', '【計畫異動紀錄】（舊版程式存的，新的在上）'); lines.push('', c.goal, '', c.plan); });
-    return '﻿' + lines.join('\n').replace(/\r?\n/g, '\r\n') + '\r\n';
-  }
-  function caseFiles(rec) {
+  /* ---- 存檔：兩個 PDF（訪視評估表／計畫更新異動、計畫內容），個案資料夾帶在 PDF 內供匯入 ---- */
+  function caseNames(rec) {
     var b = fileBase(rec), n = caseName(rec);
-    var txt = isUpd(rec) ? b.replace('計畫更新異動', '計畫更新異動內容') : n + '計畫內容';
-    return [{ name: b + '.html', text: formHtml(rec), mime: 'text/html' }, { name: txt + '.txt', text: planTxt(rec), mime: 'text/plain' }];
+    return [b + '.pdf', (isUpd(rec) ? b.replace('計畫更新異動', '計畫更新異動內容') : n + '計畫內容') + '.pdf'];
+  }
+  function dataJson(rec) { return JSON.stringify({ app: 'care-plan-generator', version: 3, exportedAt: new Date().toISOString(), rec: rec }); }
+  /* 計畫內容 PDF：只有兩段要貼到 CMS 的文字 */
+  function buildPlanDom(rec) {
+    var f = rec.f, t = outTexts(rec), upd = isUpd(rec);
+    var p = formHead(upd ? '計畫更新／異動　計畫內容' : '照顧計畫　計畫內容', rec, upd ? [['個案姓名', f.name], ['日期', NAR.rocLong(f.visitDate)], ['方式', f.upHow], ['討論對象', f.upWith], ['個管員', f.cmName]]
+      : [['個案姓名', f.name], ['訪視日期', NAR.rocLong(f.visitDate)], ['訪視類型', f.visitType], ['CMS等級', f.cms ? '第' + f.cms + '級' : ''], ['個管員', f.cmName]]);
+    p.appendChild(h('h2', null, [upd ? '計畫目標欄' : '計畫目標', h('small', { text: upd ? '貼在 CMS 計畫目標欄最上方，原內容保留在下面' : '貼到 CMS 計畫目標欄' })]));
+    p.appendChild(h('div', { class: 'ptext', text: t.goal }));
+    p.appendChild(h('h2', null, [upd ? '計畫執行規劃欄' : '計畫執行規劃', h('small', { text: upd ? '貼在 CMS 計畫執行規劃欄最上方' : '貼到 CMS 計畫執行規劃欄' })]));
+    p.appendChild(h('div', { class: 'ptext', text: t.plan }));
+    arr(rec.changes).forEach(function (c, i) {
+      if (i === 0) p.appendChild(h('h2', null, ['計畫異動紀錄', h('small', { text: '舊版程式存的，新的在上' })]));
+      p.appendChild(h('div', { class: 'ptext', text: c.goal + '\n\n' + c.plan }));
+    });
+    p.appendChild(h('div', { class: 'ft', text: ORG + '　本表由照顧計畫產生器產出' }));
+    return p;
+  }
+  function domToPdf(dom, rec, title, progress) {
+    var vf = h('div', { class: 'vf' }); while (dom.firstChild) vf.appendChild(dom.firstChild);
+    var host = PDF.stage(FORM_CSS, vf);
+    return PDF.fromElement(vf, { meta: { title: title, author: nz(rec.f.cmName) }, data: dataJson(rec), footer: title, progress: progress })
+      .then(function (blob) { host.remove(); return blob; }, function (e) { host.remove(); throw e; });
+  }
+  function caseFiles(rec, progress) {
+    var names = caseNames(rec);
+    progress = progress || function () { };
+    return domToPdf(buildFormDom(rec), rec, names[0].replace(/\.pdf$/, ''), function (x) { progress(x * 0.75); }).then(function (b1) {
+      return domToPdf(buildPlanDom(rec), rec, names[1].replace(/\.pdf$/, ''), function (x) { progress(0.75 + x * 0.25); }).then(function (b2) {
+        return [{ name: names[0], blob: b1, mime: 'application/pdf' }, { name: names[1], blob: b2, mime: 'application/pdf' }];
+      });
+    });
   }
   /* 依訪視日期決定資料夾：115年度／11月 */
   function folderParts(rec) {
@@ -204,21 +227,41 @@ var APP = (function () {
       return hd.requestPermission({ mode: 'readwrite' }).then(function (q) { return q === 'granted'; });
     });
   }
-  function writeToFolder(root, rec) {
-    var parts = folderParts(rec), files = caseFiles(rec);
-    return root.getDirectoryHandle(parts[0], { create: true }).then(function (y) { return y.getDirectoryHandle(parts[1], { create: true }); }).then(function (dir) {
+  function writeToFolder(root, rec, files) {
+    var parts = folderParts(rec);
+    return (files ? Promise.resolve(files) : caseFiles(rec)).then(function (fl) {
+      files = fl;
+      return root.getDirectoryHandle(parts[0], { create: true });
+    }).then(function (y) { return y.getDirectoryHandle(parts[1], { create: true }); }).then(function (dir) {
       return files.reduce(function (pr, f) {
         return pr.then(function () { return dir.getFileHandle(f.name, { create: true }); }).then(function (fh) { return fh.createWritable(); })
-          .then(function (w) { return w.write(f.text).then(function () { return w.close(); }); });
+          .then(function (w) { return w.write(f.blob || f.text).then(function () { return w.close(); }); });
       }, Promise.resolve());
     }).then(function () { return (root.name ? root.name + '／' : '') + parts.join('／'); });
+  }
+  /* 產生 PDF 時顯示進度（無法關閉，完成後自動收起） */
+  function makePdfs(rec) {
+    var bar = h('div', { class: 'pbar' }, [h('i')]), msg = h('p', { style: 'margin:0 0 10px', text: '正在產生 PDF（訪視評估表、計畫內容），請稍候…' });
+    var ov = h('div', { class: 'overlay busy' }, [h('div', { class: 'dialog', style: 'width:min(420px,100%)' }, [h('div', { style: 'padding:22px' }, [msg, bar])])]);
+    document.body.appendChild(ov);
+    return caseFiles(rec, function (x) { bar.firstChild.style.width = Math.round(x * 100) + '%'; })
+      .then(function (files) { ov.remove(); return files; }, function (e) { ov.remove(); throw e; });
   }
   /* 「存檔」按鈕：有設定資料夾就自動分到年度／月份；否則下載（iPad 走分享選單） */
   function saveCase(rec) {
     rec = rec || S.rec; if (rec === S.rec) saveNow();
-    var files = caseFiles(rec);
-    function fallback(msg) { UI.deliverFiles(files, msg); }
-    if (!FS.ok) { fallback(UI.isIOS ? '請在分享選單選「儲存到檔案」，放到 ' + folderParts(rec).join('／') : '已下載兩個檔案，請放到 ' + folderParts(rec).join('／') + ' 資料夾'); return; }
+    function failed(e) { UI.toast('PDF 產生失敗：' + ((e && e.message) || '請再試一次')); }
+    /* 下載或分享：iPad／iPhone 的分享選單必須由使用者再點一次才能打開，所以產生完先跳出「分享」按鈕 */
+    function fallback(msg) {
+      makePdfs(rec).then(function (files) {
+        if (UI.canShareFiles(files)) {
+          UI.dialog('PDF 已產生', h('div', null, [h('p', { style: 'margin-top:0', text: '已產生「' + files.map(function (f) { return f.name; }).join('」「') + '」。' }),
+            h('p', { class: 'help', text: '按「分享／儲存」後，在分享選單選「儲存到檔案」，放到 ' + folderParts(rec).join('／') + '。' })]),
+            [{ label: '取消' }, { label: '分享／儲存', pri: true, on: function () { UI.deliverFiles(files, msg); } }]);
+        } else UI.deliverFiles(files, msg);
+      }, failed);
+    }
+    if (!FS.ok) { fallback(UI.isIOS ? '請在分享選單選「儲存到檔案」，放到 ' + folderParts(rec).join('／') : '已下載兩個 PDF，請放到 ' + folderParts(rec).join('／') + ' 資料夾'); return; }
     if (!FS.handle) {
       UI.dialog('還沒有設定存檔資料夾', h('div', null, [
         h('p', { style: 'margin-top:0', text: '選一次存檔資料夾（建議選「照顧計畫產生器」裡的「個案存檔」），之後按「存檔」就會自動依訪視日期放進「' + folderParts(rec).join('／') + '」這類年度、月份資料夾。' }),
@@ -228,7 +271,9 @@ var APP = (function () {
     }
     ensurePerm(FS.handle).then(function (ok) {
       if (!ok) { fallback('沒有取得資料夾權限，已改為下載'); return; }
-      return writeToFolder(FS.handle, rec).then(function (where) { UI.toast('已存入 ' + where + '（兩個檔案）'); });
+      return makePdfs(rec).then(function (files) {
+        return writeToFolder(FS.handle, rec, files).then(function (where) { UI.toast('已存入 ' + where + '（兩個 PDF）'); }, function () { UI.deliverFiles(files, '無法寫入資料夾，已改為下載'); });
+      }, failed);
     }).catch(function () { fallback('無法寫入資料夾，已改為下載'); });
   }
   function importRec(obj) {
@@ -344,7 +389,7 @@ var APP = (function () {
         h('button', { type: 'button', class: 'mode', onclick: function () { openRec(newUpdate()); } }, [h('b', { text: '計畫更新／異動' }), h('span', { text: '已有舊計畫：只寫體況變化與服務差異，疊加在 CMS 原計畫的最上方' })])
       ]),
       h('div', { class: 'homeacts' }, [
-        h('button', { type: 'button', class: 'btn', text: '匯入存檔', title: '打開之前存的「訪視評估表」或「計畫更新異動」html 檔', onclick: function () { UI.pickFile(importRec); } }),
+        h('button', { type: 'button', class: 'btn', text: '匯入存檔', title: '打開之前存的 PDF（訪視評估表、計畫內容、計畫更新異動）或舊版 html 檔', onclick: function () { UI.pickFile(importRec); } }),
         h('button', { type: 'button', class: 'btn', text: '設定', onclick: openSettings }),
         h('button', { type: 'button', class: 'btn', text: '使用說明', onclick: openHelp })
       ]),
@@ -381,7 +426,7 @@ var APP = (function () {
         [h('span', { class: 'mark', 'aria-hidden': 'true' }), h('span', { class: 'bt' }, [h('b', { text: '照顧計畫產生器' }), h('small', { text: ORG })])]), E.info, E.save,
       h('div', { class: 'acts' }, [
         h('button', { type: 'button', class: 'btn sm', text: '‹ 返回首頁', title: '回到首頁（個案清單），目前內容會先自動儲存', onclick: goHome }),
-        h('button', { type: 'button', class: 'btn sm pri', text: '存檔', title: isUpd() ? '存出「計畫更新異動」與文字內容兩個檔案' : '存出「訪視評估表」與「計畫內容」兩個檔案', onclick: function () { saveCase(); } }),
+        h('button', { type: 'button', class: 'btn sm pri', text: '存檔', title: isUpd() ? '存出「計畫更新異動」與「計畫更新異動內容」兩個 PDF' : '存出「訪視評估表」與「計畫內容」兩個 PDF', onclick: function () { saveCase(); } }),
         h('button', { type: 'button', class: 'btn sm', text: isUpd() ? '列印' : '列印評估表', onclick: printForm }),
         h('button', { type: 'button', class: 'btn sm', text: '設定', onclick: openSettings })
       ])
@@ -808,7 +853,7 @@ var APP = (function () {
     pane.appendChild(block('留存', [h('div', { class: 'inline' }, [
       h('button', { type: 'button', class: 'btn', text: '列印訪視評估表（可另存 PDF）', onclick: printForm }),
       h('button', { type: 'button', class: 'btn pri', text: '存檔（訪視評估表＋計畫內容）', onclick: function () { saveCase(); } })]),
-      h('p', { class: 'help', text: '會存出「' + caseName(S.rec) + '訪視評估表.html」與「' + caseName(S.rec) + '計畫內容.txt」。訪視評估表檔之後可以用首頁的「匯入存檔」重新打開，供複評使用。' })]));
+      h('p', { class: 'help', text: '會存出「' + caseName(S.rec) + '訪視評估表.pdf」與「' + caseName(S.rec) + '計畫內容.pdf」。訪視評估表檔之後可以用首頁的「匯入存檔」重新打開，供複評使用。' })]));
   };
 
   /* ============================================================
@@ -877,7 +922,7 @@ var APP = (function () {
     pane.appendChild(block('留存', [h('div', { class: 'inline' }, [
       h('button', { type: 'button', class: 'btn', text: '列印（可另存 PDF）', onclick: printForm }),
       h('button', { type: 'button', class: 'btn pri', text: '存檔', onclick: function () { saveCase(); } })]),
-      h('p', { class: 'help', text: '會存出「' + fileBase(S.rec) + '.html」（可列印，也可用首頁「匯入存檔」重新打開）與文字檔。' })]));
+      h('p', { class: 'help', text: '會存出「' + fileBase(S.rec) + '.pdf」與內容 PDF，兩個都可以用首頁「匯入存檔」重新打開。' })]));
   };
 
 
@@ -1074,14 +1119,14 @@ var APP = (function () {
       '到「參　照顧問題」依 CMS 核定的問題清單勾選，並調整說明。',
       '到「肆　服務規劃」選取服務碼、頻率與備註；「計畫目標」會自動擬一版短中長期目標。',
       '到「產生計畫」檢查提醒事項，分別複製「計畫目標」「計畫執行規劃」貼到 CMS。',
-      '按右上角「存檔」，存出「○○訪視評估表」與「○○計畫內容」兩個檔案。',
+      '按右上角「存檔」，存出「○○訪視評估表.pdf」與「○○計畫內容.pdf」兩個 PDF。',
       '需要紙本或 PDF 時，按「列印評估表」。'], true);
     sec('計畫更新／異動的流程', ['按「計畫更新／異動」，填日期、方式、討論對象與本次體況。',
       '只選這次有變動的服務，每一項標「新增／調整／維持／取消」；「調整」要填原本的單位數，會寫成「由○調整為○」。',
       '複製「計畫目標欄段落」「計畫執行規劃欄段落」，分別貼在 CMS 兩個欄位的最上方，原本的內容保留在下面。']);
     sec('存檔與資料夾', ['電腦（Chrome 或 Edge）：第一次按「存檔」時選一次存檔資料夾，之後會自動依訪視日期存進「115年度／11月」這類子資料夾。',
       'iPad（Safari）：按「存檔」會跳出分享選單，請選「儲存到檔案」並自行選資料夾；Safari 無法自動分資料夾。',
-      '存出的 html 檔可列印，也可以在任何一台裝置用首頁的「匯入存檔」重新打開編輯（平板訪視、電腦寫計畫時這樣交接）。',
+      '存出的 PDF 可直接列印或傳給督導；PDF 內夾帶個案資料，在任何一台裝置用首頁的「匯入存檔」選 PDF 就能重新打開編輯（舊版存的 html 檔也可以）。',
       '另外，程式會把最近編輯的個案自動記在這台裝置的瀏覽器裡，但清除瀏覽器資料就會消失，請以存檔為準。']);
     sec('在 iPad 上使用', ['iPad 的 Safari 無法直接開啟「檔案」App 裡的 HTML 檔，開啟方式請見資料夾內的使用說明。']);
     sec('服務碼來源', ['服務碼名稱取自「長期照顧服務申請及給付辦法」附表四、附表四之一（114年6月19日修正）。', '標有「請核對」的是不在附表內的項目（短照 SC 碼、CMS 細分碼），名稱請以 CMS 顯示為準。', '法規修正後若碼別有變，可在「設定」新增自訂項目。']);
@@ -1099,5 +1144,5 @@ var APP = (function () {
     if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) { try { navigator.serviceWorker.register('sw.js').catch(function () { }); } catch (e) { } }
     renderHome();
   }
-  return { init: init, _writeToFolder: writeToFolder, _caseFiles: caseFiles, _import: importRec, _jump: jumpTo, _S: S, _open: openRec, _new: newRecord, _show: function (id) { showSection(id); }, _norm: normalize, _formHtml: formHtml };
+  return { init: init, _writeToFolder: writeToFolder, _caseFiles: caseFiles, _caseNames: caseNames, _import: importRec, _jump: jumpTo, _S: S, _open: openRec, _new: newRecord, _show: function (id) { showSection(id); }, _norm: normalize, _formHtml: formHtml };
 })();

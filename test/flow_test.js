@@ -14,17 +14,24 @@ fs.mkdirSync(OUT, { recursive: true });
   page.on('pageerror', e => errors.push('pageerror: ' + e.message));
   await page.goto(FILE);
   await page.evaluate(f => { APP._open(APP._norm({ id: 'demo', f: f, changes: [] })); }, S.homeCare);
-  /* 存檔：兩個檔案（未設定資料夾 → 這次先下載） */
+  /* 存檔：兩個 PDF（未設定資料夾 → 這次先下載） */
   await page.click('.top >> text=存檔');
   const dls = [];
   page.on('download', d => dls.push(d));
   await page.click('.dialog footer >> text=這次先下載');
-  await page.waitForTimeout(1500);
+  ok(await page.locator('.overlay.busy .pbar').count() === 1, '產生 PDF 時顯示進度');
+  for (let i = 0; i < 60 && dls.length < 2; i++) await page.waitForTimeout(500);
   const names = dls.map(d => d.suggestedFilename()).sort();
-  ok(names.length === 2 && names.includes('王大同訪視評估表.html') && names.includes('王大同計畫內容.txt'), '存檔兩個檔案：' + names.join('、'));
-  const formFile = path.join(OUT, 'form.html'); await dls.find(d => /html$/.test(d.suggestedFilename())).saveAs(formFile);
-  const txtFile = path.join(OUT, 'plan.txt'); await dls.find(d => /txt$/.test(d.suggestedFilename())).saveAs(txtFile);
-  ok(fs.readFileSync(txtFile, 'utf8').includes('【計畫執行規劃】'), '計畫內容檔內容正確');
+  ok(names.length === 2 && names.includes('王大同訪視評估表.pdf') && names.includes('王大同計畫內容.pdf'), '存檔兩個 PDF：' + names.join('、'));
+  const formFile = path.join(OUT, 'form.pdf'); await dls.find(d => /訪視評估表\.pdf$/.test(d.suggestedFilename())).saveAs(formFile);
+  const planFile = path.join(OUT, 'plan.pdf'); await dls.find(d => /計畫內容\.pdf$/.test(d.suggestedFilename())).saveAs(planFile);
+  const pdfBuf = fs.readFileSync(formFile), pdfTxt = pdfBuf.toString('latin1');
+  ok(pdfTxt.startsWith('%PDF-1.7') && /%%EOF\s*$/.test(pdfTxt) && (pdfTxt.match(/\/Type \/Page /g) || []).length >= 2, '訪視評估表 PDF 格式正確，共 ' + (pdfTxt.match(/\/Type \/Page /g) || []).length + ' 頁，' + Math.round(pdfBuf.length / 1024) + ' KB');
+  ok(pdfTxt.includes('/EmbeddedFiles') && pdfTxt.includes('(cpgen-data.json)'), 'PDF 夾帶個案資料（匯入用）');
+  /* xref 位移正確（PDF 閱讀器才打得開） */
+  const sx = +/startxref\n(\d+)/.exec(pdfTxt)[1], xr = pdfTxt.slice(sx, sx + 4), offs = [...pdfTxt.slice(sx).matchAll(/^(\d{10}) 00000 n $/gm)].map(m => +m[1]);
+  ok(xr === 'xref' && offs.every((o, i) => pdfTxt.slice(o, o + String(i + 1).length + 6) === (i + 1) + ' 0 obj'), 'PDF 交叉索引表正確（' + offs.length + ' 個物件）');
+  ok(fs.statSync(planFile).size > 20000, '計畫內容 PDF 已產生');
   /* 資料夾：用瀏覽器內部檔案系統模擬，確認年度／月份子資料夾 */
   const http = require('http');
   const distDir = path.join(__dirname, '../dist/照顧計畫產生器');
@@ -40,7 +47,7 @@ fs.mkdirSync(OUT, { recursive: true });
     for await (const [n] of m.entries()) out.push(n); return out.sort().join(',');
   }, S.homeCare);
   await p2.close(); srv.close();
-  ok(tree.split(',').length === 2 && tree.includes('王大同訪視評估表.html') && tree.includes('王大同計畫內容.txt'), '自動存入 115年度／10月：' + tree);
+  ok(tree.split(',').length === 2 && tree.includes('王大同訪視評估表.pdf') && tree.includes('王大同計畫內容.pdf'), '自動存入 115年度／10月：' + tree);
   /* 回清單 → 刪除 → 匯入訪視評估表檔 */
   await page.click('.top >> text=返回首頁');
   ok(await page.locator('.caselist >> text=王大同').count() === 1, '清單顯示個案');
@@ -49,7 +56,22 @@ fs.mkdirSync(OUT, { recursive: true });
   const [fc] = await Promise.all([page.waitForEvent('filechooser'), page.click('text=匯入存檔')]);
   await fc.setFiles(formFile);
   await page.waitForSelector('input[aria-label="個案姓名"]');
-  ok((await page.locator('input[aria-label="個案姓名"]').inputValue()) === '王大同', '從訪視評估表檔匯入後開啟');
+  ok((await page.locator('input[aria-label="個案姓名"]').inputValue()) === '王大同', '從訪視評估表 PDF 匯入後開啟');
+  /* 計畫內容 PDF 也可匯入；舊版 html 存檔仍可匯入 */
+  await page.click('.top >> text=返回首頁');
+  await page.click('.caselist >> text=刪除'); await page.click('.dialog footer >> text=刪除');
+  const [fcp] = await Promise.all([page.waitForEvent('filechooser'), page.click('text=匯入存檔')]);
+  await fcp.setFiles(planFile);
+  await page.waitForSelector('input[aria-label="個案姓名"]');
+  ok((await page.locator('input[aria-label="個案姓名"]').inputValue()) === '王大同', '從計畫內容 PDF 匯入後開啟');
+  const oldHtml = path.join(OUT, 'old_form.html');
+  fs.writeFileSync(oldHtml, await page.evaluate(() => APP._formHtml(APP._S.rec)));
+  await page.click('.top >> text=返回首頁');
+  await page.click('.caselist >> text=刪除'); await page.click('.dialog footer >> text=刪除');
+  const [fch] = await Promise.all([page.waitForEvent('filechooser'), page.click('text=匯入存檔')]);
+  await fch.setFiles(oldHtml);
+  await page.waitForSelector('input[aria-label="個案姓名"]');
+  ok((await page.locator('input[aria-label="個案姓名"]').inputValue()) === '王大同', '舊版 html 存檔仍可匯入');
   ok(await page.locator('.rail a[data-sec="change"]').count() === 0, '撰寫計畫裡已沒有「計畫異動」分頁');
   /* 計畫更新／異動：從首頁第二個入口進入 */
   await page.click('.top >> text=返回首頁');
@@ -79,10 +101,10 @@ fs.mkdirSync(OUT, { recursive: true });
   page.on('download', d => dl2.push(d));
   await page.click('.top >> text=存檔');
   await page.click('.dialog footer >> text=這次先下載');
-  await page.waitForTimeout(1500);
+  for (let i = 0; i < 60 && dl2.length < 2; i++) await page.waitForTimeout(500);
   const n2 = dl2.map(d => d.suggestedFilename()).sort();
-  ok(n2.includes('王大同計畫更新異動_1151115.html') && n2.includes('王大同計畫更新異動內容_1151115.txt'), '更新／異動存檔檔名：' + n2.join('、'));
-  const upFile = path.join(OUT, 'update.html'); await dl2.find(d => /html$/.test(d.suggestedFilename())).saveAs(upFile);
+  ok(n2.includes('王大同計畫更新異動_1151115.pdf') && n2.includes('王大同計畫更新異動內容_1151115.pdf'), '更新／異動存檔檔名：' + n2.join('、'));
+  const upFile = path.join(OUT, 'update.pdf'); await dl2.find(d => /異動_1151115\.pdf$/.test(d.suggestedFilename())).saveAs(upFile);
   await page.click('.top >> text=返回首頁');
   ok(await page.locator('.crow:has-text("王大同") .kindtag.upd').count() === 1, '清單標示「更新／異動」');
   ok(await page.locator('.crow:has(.kindtag.upd) >> text=複製為複評').count() === 0, '更新／異動紀錄沒有「複製為複評」');
