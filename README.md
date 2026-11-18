@@ -32,3 +32,6 @@ node test/flow_test.js      # 存檔兩個 PDF 與年度月份資料夾、PDF／
 node test/new_test.js       # 額度帶入、目標換寫法、跳到未填欄位、身障選項、複評比對、交通單位簡稱轉換
 ```
 瀏覽器測試需要 Playwright：`npm install`（依 package.json）後執行 `npx playwright install chromium`。`node_modules/` 只供本機測試，不會打包進成品。
+
+## 版權
+© 明曜居家長照機構 版權所有，未經授權不得複製、修改或散布。詳見 `LICENSE`。

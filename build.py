@@ -23,7 +23,9 @@ APP_NAME = '明曜A訪視專用程式'   # 加入手機／平板主畫面時顯�
 assert '</script' not in js.lower(), 'JS 內不可出現 </script'
 ver = datetime.date.today().strftime('%Y.%m.%d')
 js = js.replace('__VER__', ver)
+COPYRIGHT = '© 明曜居家長照機構 版權所有，未經授權不得複製、修改或散布'
 html = f"""<!doctype html>
+<!-- {COPYRIGHT} -->
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
@@ -47,7 +49,8 @@ html = f"""<!doctype html>
 <div id="app"><noscript>這個程式需要瀏覽器開啟 JavaScript 才能使用。</noscript></div>
 <div id="print"></div>
 <script>
-/* 照顧計畫產生器 版本 {ver}；完全離線，不連線、不上傳任何資料 */
+/* 照顧計畫產生器 版本 {ver}；完全離線，不連線、不上傳任何資料
+   {COPYRIGHT} */
 {js}
 </script>
 <script>APP.init();</script>

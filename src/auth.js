@@ -114,7 +114,7 @@ var AUTH = (function () {
           h('div', { class: 'lg-divider', 'aria-hidden': 'true' }, [h('i'), svg(ICON.heart, 'lg-heart'), h('i')])
         ]),
         form,
-        h('p', { class: 'lg-foot' }, ['新北市私立明曜居家長照機構社區整合型中心專用', h('br'), '版本 __VER__'])
+        h('p', { class: 'lg-foot' }, ['新北市私立明曜居家長照機構社區整合型中心專用　版本 __VER__', h('br'), '© 明曜居家長照機構 版權所有，未經授權不得複製、修改或散布'])
       ])
     ]));
     setTimeout(function () { (user.value ? pw : user).focus(); }, 60);

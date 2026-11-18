@@ -20,6 +20,7 @@ var APP = (function () {
     return res;
   }
   var ORG = '新北市私立明曜居家長照機構社區整合型中心專用';
+  var COPYRIGHT = '© 明曜居家長照機構 版權所有，未經授權不得複製、修改或散布';
   var S = { st: null, idx: [], rec: null, sec: 'basic', conds: [], hooks: [], timer: null, draftOpen: false, lastDraft: null };
   var E = {};                       /* 重要節點 */
   var ctx = { changed: changed, conds: null, refreshConds: refreshConds };
@@ -411,7 +412,8 @@ var APP = (function () {
       ]),
       list,
       h('div', { class: 'privacy' }, [h('b', { text: '個資提醒　' }), '本程式完全離線，不會把任何資料傳到網路。個案資料只存在這台裝置的瀏覽器裡；與他人共用裝置時，請在完成後按「存檔」並刪除清單中的資料。',
-        !store.ok ? h('div', { style: 'margin-top:6px;font-weight:600', text: '目前這個瀏覽器無法自動儲存，關閉前請務必按「存檔」保存。' }) : null])
+        !store.ok ? h('div', { style: 'margin-top:6px;font-weight:600', text: '目前這個瀏覽器無法自動儲存，關閉前請務必按「存檔」保存。' }) : null]),
+      h('p', { class: 'copyright', text: COPYRIGHT })
     ]));
     window.scrollTo(0, 0);
   }
