@@ -1,4 +1,5 @@
 <!doctype html>
+<!-- © 明曜居家長照機構 版權所有，未經授權不得複製、修改或散布 -->
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
@@ -457,6 +458,8 @@ body.loginmode { background: #1c3a40; }
   .lg-foot { grid-column: 1 / -1; margin-top: 8px; }
 }
 
+/* 首頁頁尾：版權聲明 */
+.copyright { margin: 18px 0 0; text-align: center; font-size: 12.5px; color: var(--label3); letter-spacing: .03em; }
 /* 首頁：目前登入的帳號 */
 .whoami { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: var(--label2); padding: 6px 12px; border-radius: 999px; background: var(--fill); }
 .whoami b { color: var(--label); }
@@ -472,7 +475,8 @@ body.loginmode { background: #1c3a40; }
 <div id="app"><noscript>這個程式需要瀏覽器開啟 JavaScript 才能使用。</noscript></div>
 <div id="print"></div>
 <script>
-/* 照顧計畫產生器 版本 2026.11.18；完全離線，不連線、不上傳任何資料 */
+/* 照顧計畫產生器 版本 2026.11.18；完全離線，不連線、不上傳任何資料
+   © 明曜居家長照機構 版權所有，未經授權不得複製、修改或散布 */
 /*!
  * html2canvas 1.4.1 <https://html2canvas.hertzen.com>
  * Copyright (c) 2022 Niklas von Hertzen <https://hertzen.com>
@@ -2856,7 +2860,7 @@ var AUTH = (function () {
           h('div', { class: 'lg-divider', 'aria-hidden': 'true' }, [h('i'), svg(ICON.heart, 'lg-heart'), h('i')])
         ]),
         form,
-        h('p', { class: 'lg-foot' }, ['新北市私立明曜居家長照機構社區整合型中心專用', h('br'), '版本 2026.11.18'])
+        h('p', { class: 'lg-foot' }, ['新北市私立明曜居家長照機構社區整合型中心專用　版本 2026.11.18', h('br'), '© 明曜居家長照機構 版權所有，未經授權不得複製、修改或散布'])
       ])
     ]));
     setTimeout(function () { (user.value ? pw : user).focus(); }, 60);
@@ -2887,6 +2891,7 @@ var APP = (function () {
     return res;
   }
   var ORG = '新北市私立明曜居家長照機構社區整合型中心專用';
+  var COPYRIGHT = '© 明曜居家長照機構 版權所有，未經授權不得複製、修改或散布';
   var S = { st: null, idx: [], rec: null, sec: 'basic', conds: [], hooks: [], timer: null, draftOpen: false, lastDraft: null };
   var E = {};                       /* 重要節點 */
   var ctx = { changed: changed, conds: null, refreshConds: refreshConds };
@@ -3278,7 +3283,8 @@ var APP = (function () {
       ]),
       list,
       h('div', { class: 'privacy' }, [h('b', { text: '個資提醒　' }), '本程式完全離線，不會把任何資料傳到網路。個案資料只存在這台裝置的瀏覽器裡；與他人共用裝置時，請在完成後按「存檔」並刪除清單中的資料。',
-        !store.ok ? h('div', { style: 'margin-top:6px;font-weight:600', text: '目前這個瀏覽器無法自動儲存，關閉前請務必按「存檔」保存。' }) : null])
+        !store.ok ? h('div', { style: 'margin-top:6px;font-weight:600', text: '目前這個瀏覽器無法自動儲存，關閉前請務必按「存檔」保存。' }) : null]),
+      h('p', { class: 'copyright', text: COPYRIGHT })
     ]));
     window.scrollTo(0, 0);
   }
