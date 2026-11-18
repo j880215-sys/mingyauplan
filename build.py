@@ -6,7 +6,7 @@ src = root / 'src'
 out_dir = root / 'dist' / '照顧計畫產生器'
 out_dir.mkdir(parents=True, exist_ok=True)
 css = (src / 'style.css').read_text(encoding='utf8')
-js = '\n'.join((src / f).read_text(encoding='utf8') for f in ['vendor/html2canvas.min.js', 'pdf.js', 'catalog.js', 'data.js', 'schema.js', 'narrative.js', 'ui.js', 'app.js'])
+js = '\n'.join((src / f).read_text(encoding='utf8') for f in ['vendor/html2canvas.min.js', 'pdf.js', 'catalog.js', 'data.js', 'schema.js', 'narrative.js', 'ui.js', 'accounts.js', 'auth.js', 'app.js'])
 # 明曜 logo（src/assets，由原始 logo 裁切縮小）以 data URI 內嵌，維持單一離線檔
 import base64
 for key, name in (('__LOGO_FULL__', 'logo-full.png'), ('__LOGO_MARK__', 'logo-mark.png')):
@@ -14,9 +14,15 @@ for key, name in (('__LOGO_FULL__', 'logo-full.png'), ('__LOGO_MARK__', 'logo-ma
     css = css.replace(key, uri); js = js.replace(key, uri)
 def data_uri(name):
     return 'data:image/png;base64,' + base64.b64encode((src / 'assets' / name).read_bytes()).decode('ascii')
+# 登入畫面素材（tools/make_login_assets.py 產生）：白色 LOGO、標題字、8 張背景照片
+login = src / 'assets' / 'login'
+for key, name, mime in [('__LOGIN_LOGO__', 'logo-white.png', 'png'), ('__LOGIN_TITLE__', 'title.png', 'png')] + [('__LOGIN_TILE%d__' % i, 'tile%d.jpg' % i, 'jpeg') for i in range(1, 9)]:
+    uri = 'data:image/' + mime + ';base64,' + base64.b64encode((login / name).read_bytes()).decode('ascii')
+    css = css.replace(key, uri); js = js.replace(key, uri)
 APP_NAME = '明曜A訪視專用程式'   # 加入手機／平板主畫面時顯示的名稱
 assert '</script' not in js.lower(), 'JS 內不可出現 </script'
 ver = datetime.date.today().strftime('%Y.%m.%d')
+js = js.replace('__VER__', ver)
 html = f"""<!doctype html>
 <html lang="zh-Hant">
 <head>

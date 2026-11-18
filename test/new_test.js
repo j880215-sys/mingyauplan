@@ -2,6 +2,7 @@
 const { chromium } = require('playwright');
 const path = require('path'), fs = require('fs');
 const S = require('./samples.js');
+const H = require('./helpers.js');
 const FILE = 'file://' + path.join(__dirname, '../dist/照顧計畫產生器/照顧計畫產生器.html');
 const OUT = process.env.SHOT_DIR || path.join(__dirname, 'shots');
 (async () => {
@@ -11,7 +12,7 @@ const OUT = process.env.SHOT_DIR || path.join(__dirname, 'shots');
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   const page = await ctx.newPage();
   page.on('pageerror', e => errors.push(e.message)); page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
-  await page.goto(FILE);
+  await page.goto(FILE); await H.enter(page);
   /* 額度：CMS 2 級 → GA09 42、SC09 114；7 級 → 63、93 */
   const f = { name: '額度測試', cmName: '個管', visitDate: '2026-11-15', cms: '3', foreign: '有', careFlags: ['聘有外籍看護'] };
   await page.evaluate(f => APP._open(APP._norm({ id: 'q', f: f, changes: [] })), f);
@@ -104,12 +105,12 @@ const OUT = process.env.SHOT_DIR || path.join(__dirname, 'shots');
     [{ vendors: ['亞捷汽車租賃股份有限公司', '捷安租賃股份有限公司', '金永國際租賃有限公司', '北台灣無障礙運輸產業工會', '好爸爸無障礙爬梯機接送有限公司', '吉盛交通股份有限公司', '太豐交通有限公司', '勝安租賃有限公司', '優遊小客車租賃有限公司', '台灣福祉車租賃有限公司', '社團法人台灣樂康協會', '小驢駒小客車租賃有限公司', '樂格適小客車租賃有限公司', '大豐國際租賃有限公司', '駿德租賃有限公司', '福倫交通股份有限公司', '生活交通有限公司', '社團法人台灣樂活協會', '社團法人振生長期照顧協會', '三揚國際租賃有限公司', '大豐交通有限公司台北市分公司'] }, '亞捷', 21, '115.9 版全名預設換成新簡稱名單'],
     [{ vendors: ['吉盛交通股份有限公司', '自訂車行'] }, '吉盛', 2, '自行修改過的設定保留，全名換成簡稱']]) {
     const p2 = await ctx.newPage();
-    await p2.goto(FILE);
-    await p2.evaluate(st => { localStorage.setItem('cpgen.settings', JSON.stringify(st)); }, st);
-    await p2.reload();
+    await p2.goto(FILE); await H.enter(p2);
+    await p2.evaluate(st => { localStorage.setItem('cpgen.' + APP._S.sess.u + '.settings', JSON.stringify(st)); }, st);
+    await p2.reload(); await H.enter(p2);
     const v2 = await p2.evaluate(() => APP._S.st.vendors);
     ok(v2[0] === expectFirst && v2.length === expectLen && (expectLen !== 21 || v2[7] === '振生'), label + '：' + v2.slice(0, 3).join('、') + '…共 ' + v2.length + ' 個');
-    await p2.evaluate(() => localStorage.removeItem('cpgen.settings'));
+    await p2.evaluate(() => localStorage.removeItem('cpgen.' + APP._S.sess.u + '.settings'));
     await p2.close();
   }
 

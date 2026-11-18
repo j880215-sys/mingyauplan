@@ -2,6 +2,7 @@
 const { chromium } = require('playwright');
 const path = require('path'), fs = require('fs');
 const S = require('./samples.js');
+const H = require('./helpers.js');
 const FILE = 'file://' + path.join(__dirname, '../dist/照顧計畫產生器/照顧計畫產生器.html');
 const OUT = process.env.SHOT_DIR || path.join(__dirname, 'shots');
 fs.mkdirSync(OUT, { recursive: true });
@@ -12,7 +13,7 @@ fs.mkdirSync(OUT, { recursive: true });
   const page = await ctx.newPage();
   page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
   page.on('pageerror', e => errors.push('pageerror: ' + e.message));
-  await page.goto(FILE);
+  await page.goto(FILE); await H.enter(page);
   await page.evaluate(f => { APP._open(APP._norm({ id: 'demo', f: f, changes: [] })); }, S.homeCare);
   /* 存檔：兩個 PDF（未設定資料夾 → 這次先下載） */
   await page.click('.top >> text=存檔');
@@ -39,7 +40,7 @@ fs.mkdirSync(OUT, { recursive: true });
   await new Promise(r => srv.listen(8799, '127.0.0.1', r));
   const p2 = await ctx.newPage();
   p2.on('pageerror', e => errors.push('p2 pageerror: ' + e.message));
-  await p2.goto('http://127.0.0.1:8799/');
+  await p2.goto('http://127.0.0.1:8799/'); await H.enter(p2);
   const tree = await p2.evaluate(async (f) => {
     const root = await navigator.storage.getDirectory();
     await APP._writeToFolder(root, { id: 'x', f: f, changes: [] });

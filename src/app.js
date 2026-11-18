@@ -4,7 +4,21 @@
 var APP = (function () {
   'use strict';
   var h = UI.h, clear = UI.clear, nz = NAR.nz, arr = NAR.arr, store = UI.store;
+  /* 儲存位置依登入帳號分開：cpgen.<帳號>.settings／index／case.<id>（登入後由 useAccount 設定） */
   var K = { st: 'cpgen.settings', idx: 'cpgen.index', rec: 'cpgen.case.' };
+  var LEGACY = { st: 'cpgen.settings', idx: 'cpgen.index', rec: 'cpgen.case.' };
+  function useAccount(u) { K = { st: 'cpgen.' + u + '.settings', idx: 'cpgen.' + u + '.index', rec: 'cpgen.' + u + '.case.' }; }
+  /* 加入登入功能前，這台裝置上的個案沒有帳號：第一個登入的帳號（且自己還沒有個案）接收這些資料 */
+  function migrateLegacy() {
+    var res = { cases: 0, settings: false };
+    var st = store.get(LEGACY.st);
+    if (st) { if (!store.get(K.st)) { store.set(K.st, st); res.settings = true; } store.del(LEGACY.st); }
+    var old = store.get(LEGACY.idx);
+    if (!Array.isArray(old) || !old.length || (store.get(K.idx) || []).length) return res;
+    old.forEach(function (m) { var r = store.get(LEGACY.rec + m.id); if (r && store.set(K.rec + m.id, r)) { store.del(LEGACY.rec + m.id); res.cases++; } });
+    store.set(K.idx, old); store.del(LEGACY.idx);
+    return res;
+  }
   var ORG = '新北市私立明曜居家長照機構社區整合型中心專用';
   var S = { st: null, idx: [], rec: null, sec: 'basic', conds: [], hooks: [], timer: null, draftOpen: false, lastDraft: null };
   var E = {};                       /* 重要節點 */
@@ -389,15 +403,22 @@ var APP = (function () {
         h('button', { type: 'button', class: 'mode', onclick: function () { openRec(newUpdate()); } }, [h('b', { text: '計畫更新／異動' }), h('span', { text: '已有舊計畫：只寫體況變化與服務差異，疊加在 CMS 原計畫的最上方' })])
       ]),
       h('div', { class: 'homeacts' }, [
+        S.sess ? h('span', { class: 'whoami' }, ['目前登入', h('b', { text: S.sess.name }), '（' + S.sess.u + '）']) : null,
         h('button', { type: 'button', class: 'btn', text: '匯入存檔', title: '打開之前存的 PDF（訪視評估表、計畫內容、計畫更新異動）或舊版 html 檔', onclick: function () { UI.pickFile(importRec); } }),
         h('button', { type: 'button', class: 'btn', text: '設定', onclick: openSettings }),
-        h('button', { type: 'button', class: 'btn', text: '使用說明', onclick: openHelp })
+        h('button', { type: 'button', class: 'btn', text: '使用說明', onclick: openHelp }),
+        S.sess ? h('button', { type: 'button', class: 'btn', text: '登出', onclick: askLogout }) : null
       ]),
       list,
       h('div', { class: 'privacy' }, [h('b', { text: '個資提醒　' }), '本程式完全離線，不會把任何資料傳到網路。個案資料只存在這台裝置的瀏覽器裡；與他人共用裝置時，請在完成後按「存檔」並刪除清單中的資料。',
         !store.ok ? h('div', { style: 'margin-top:6px;font-weight:600', text: '目前這個瀏覽器無法自動儲存，關閉前請務必按「存檔」保存。' }) : null])
     ]));
     window.scrollTo(0, 0);
+  }
+  /* 登出：先存好目前編輯的內容；個案留在這台裝置，同一帳號再登入就看得到 */
+  function askLogout() {
+    if (S.rec) saveNow();
+    UI.confirmBox('登出', '要登出「' + S.sess.name + '」嗎？目前內容已自動儲存，這台裝置上的個案會保留，下次用同一個帳號登入就會看到。', '登出', function () { AUTH.logout(); location.reload(); });
   }
   function cloneForReview(rec) {
     var n = JSON.parse(JSON.stringify(rec));
@@ -428,7 +449,8 @@ var APP = (function () {
         h('button', { type: 'button', class: 'btn sm', text: '‹ 返回首頁', title: '回到首頁（個案清單），目前內容會先自動儲存', onclick: goHome }),
         h('button', { type: 'button', class: 'btn sm pri', text: '存檔', title: isUpd() ? '存出「計畫更新異動」與「計畫更新異動內容」兩個 PDF' : '存出「訪視評估表」與「計畫內容」兩個 PDF', onclick: function () { saveCase(); } }),
         h('button', { type: 'button', class: 'btn sm', text: isUpd() ? '列印' : '列印評估表', onclick: printForm }),
-        h('button', { type: 'button', class: 'btn sm', text: '設定', onclick: openSettings })
+        h('button', { type: 'button', class: 'btn sm', text: '設定', onclick: openSettings }),
+        S.sess ? h('button', { type: 'button', class: 'btn sm', text: '登出', title: '登出 ' + S.sess.name + '（' + S.sess.u + '）', onclick: askLogout }) : null
       ])
     ]));
     /* 頂列高度會因螢幕寬度換行而改變（手機上兩排）：把實際高度給分頁列、草稿欄當黏貼位置，避免被頂列蓋住 */
@@ -1066,7 +1088,7 @@ var APP = (function () {
     function rowEl(label, el) { return [h('div', { class: 'fl', text: label }), h('div', null, el)]; }
     var grid = h('div', { class: 'setgrid' });
     [].concat(
-      rowEl('個管員姓名（新個案自動帶入）', UI.textInput({ id: 'cmName', type: 'text', w: '12em', aria: '個管員姓名' }, tmp, c)),
+      rowEl('個管員姓名（新個案自動帶入；預設為登入帳號的姓名）', UI.textInput({ id: 'cmName', type: 'text', w: '12em', aria: '個管員姓名' }, tmp, c)),
       rowEl('預設居住地址', UI.textInput({ id: 'address', type: 'text', w: '100%', aria: '預設居住地址' }, tmp, c)),
       rowEl('DA01 交通額度（元/月）', UI.textInput({ id: 'transAmount', type: 'number', w: '8em', aria: '交通額度' }, tmp, c)),
       rowEl('交通服務單位（一行一個，依此順序顯示）', UI.textareaInput({ id: 'vendors', rows: 8, label: '交通服務單位' }, tmp, c)),
@@ -1097,8 +1119,8 @@ var APP = (function () {
     body.appendChild(h('div', { class: 'inline' }, [
       h('button', { type: 'button', class: 'btn sm', text: '匯出設定檔（給同事用）', onclick: function () { UI.download('照顧計畫產生器_設定.json', JSON.stringify({ app: 'care-plan-generator-settings', st: S.st }, null, 1)); } }),
       h('button', { type: 'button', class: 'btn sm', text: '匯入設定檔', onclick: function () { UI.pickFile(function (o) { if (o && o.app === 'care-plan-generator-settings' && o.st) { S.st = migrateSettings(o.st); saveSettings(); dlg.close(); UI.toast('已套用設定'); rerender(); } else UI.toast('這不是設定檔'); }); } }),
-      h('button', { type: 'button', class: 'btn sm danger', text: '清除這台裝置上的全部個案', onclick: function () {
-        UI.confirmBox('清除全部個案', '這會刪除這台裝置上所有個案資料，無法復原。需要保留的請先匯出。', '全部清除', function () { S.idx.forEach(function (m) { store.del(K.rec + m.id); }); S.idx = []; store.set(K.idx, S.idx); dlg.close(); renderHome(); }, true);
+      h('button', { type: 'button', class: 'btn sm danger', text: '清除這個帳號在這台裝置上的全部個案', onclick: function () {
+        UI.confirmBox('清除全部個案', '這會刪除這個帳號在這台裝置上的所有個案資料，無法復原。需要保留的請先存檔。', '全部清除', function () { S.idx.forEach(function (m) { store.del(K.rec + m.id); }); S.idx = []; store.set(K.idx, S.idx); dlg.close(); renderHome(); }, true);
       } })]));
     var dlg = UI.dialog('設定', body, [{ label: '取消' }, { label: '儲存設定', pri: true, on: function () {
       st.cmName = nz(tmp.cmName); st.address = nz(tmp.address); st.transAmount = nz(tmp.transAmount) || '1840';
@@ -1134,8 +1156,16 @@ var APP = (function () {
   }
 
   /* ---------- 啟動 ---------- */
+  /* 啟動：已登入（7 天內）直接進首頁，否則顯示登入畫面 */
   function init() {
+    var sess = AUTH.current();
+    if (sess) start(sess); else AUTH.render(start);
+  }
+  function start(sess) {
+    S.sess = sess; useAccount(sess.u);
+    var fresh = !store.get(K.st), mig = migrateLegacy(), moved = mig.cases;
     S.st = loadSettings(); S.idx = store.get(K.idx) || [];
+    if (fresh || !nz(S.st.cmName)) { S.st.cmName = sess.name; saveSettings(); }
     var dl = h('datalist', { id: 'dl-relations' }); DATA.relations.forEach(function (r) { dl.appendChild(h('option', { value: r })); }); document.body.appendChild(dl);
     window.addEventListener('beforeunload', function () { if (S.rec && S.timer) saveNow(); });
     document.addEventListener('visibilitychange', function () { if (document.hidden && S.rec && S.timer) saveNow(); });
@@ -1143,6 +1173,7 @@ var APP = (function () {
     /* 經由網址（http/https）開啟時註冊離線快取，讓 iPad「加入主畫面」後可離線使用；直接開檔案時不需要 */
     if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) { try { navigator.serviceWorker.register('sw.js').catch(function () { }); } catch (e) { } }
     renderHome();
+    if (moved) UI.toast('這台裝置原有的 ' + moved + ' 筆個案，已歸到 ' + sess.name + ' 的帳號');
   }
   return { init: init, _writeToFolder: writeToFolder, _caseFiles: caseFiles, _caseNames: caseNames, _import: importRec, _jump: jumpTo, _S: S, _open: openRec, _new: newRecord, _show: function (id) { showSection(id); }, _norm: normalize, _formHtml: formHtml };
 })();

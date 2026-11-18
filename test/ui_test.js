@@ -2,6 +2,7 @@
 const { chromium } = require('playwright');
 const path = require('path'), fs = require('fs');
 const S = require('./samples.js');
+const H = require('./helpers.js');
 const FILE = 'file://' + path.join(__dirname, '../dist/照顧計畫產生器/照顧計畫產生器.html');
 const OUT = process.env.SHOT_DIR || path.join(__dirname, 'shots');
 fs.mkdirSync(OUT, { recursive: true });
@@ -20,7 +21,7 @@ const SECS = ['basic', 'phys', 'psych', 'family', 'home', 'routine', 'svc', 'pro
   page.on('request', r => { if (!r.url().startsWith('file://') && !r.url().startsWith('data:') && !r.url().startsWith('blob:')) requests.push(r.url()); });
   page.on('console', m => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
   page.on('pageerror', e => errors.push('pageerror: ' + e.message));
-  await page.goto(FILE);
+  await page.goto(FILE); await H.enter(page);
   ok(await page.locator('.mode >> text=撰寫計畫').count() > 0 && await page.locator('.mode >> text=計畫更新／異動').count() > 0, '首頁顯示兩個入口');
   await page.click('.mode >> text=撰寫計畫');
   await page.fill('input[aria-label="個案姓名"]', '測試阿嬤');
@@ -71,7 +72,7 @@ const SECS = ['basic', 'phys', 'psych', 'family', 'home', 'routine', 'svc', 'pro
   ok(plan.includes('BA07協助沐浴及洗頭:15單位/月') && plan.includes('DA01交通接送:1840元/月(金永)。'), '產出：計畫執行規劃內容正確');
   /* 自動儲存後重新整理仍在 */
   await page.waitForTimeout(900);
-  await page.reload();
+  await page.reload(); await H.enter(page);
   ok(await page.locator('.caselist >> text=測試阿嬤').count() === 1, '重新整理後個案仍在清單（本機儲存）');
   await page.click('.caselist >> text=開啟');
   ok((await page.locator('input[aria-label="個案姓名"]').inputValue()) === '測試阿嬤', '重新開啟後資料完整');
@@ -85,7 +86,7 @@ const SECS = ['basic', 'phys', 'psych', 'family', 'home', 'routine', 'svc', 'pro
     page = await ctx.newPage();
     page.on('console', m => { if (m.type() === 'error') errors.push(name + ' console: ' + m.text()); });
     page.on('pageerror', e => errors.push(name + ' pageerror: ' + e.message));
-    await page.goto(FILE);
+    await page.goto(FILE); await H.enter(page);
     await page.screenshot({ path: path.join(OUT, name + '_00_home.png') });
     /* 計畫更新／異動頁：各尺寸不可水平溢出 */
     await page.evaluate(() => APP._open(APP._norm({ id: 'up', kind: 'update', changes: [], f: { name: '王大同', visitDate: '2026-11-15', upHow: '電訪', upWith: '案女', cmName: '測試個管', upCond: '個案下肢較無力',

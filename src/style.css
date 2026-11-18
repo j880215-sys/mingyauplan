@@ -347,6 +347,104 @@ textarea.inp.outbox.small { min-height: 150px; }
 .acts4 .chip.act-維持[aria-checked="true"] { background: var(--slate); box-shadow: 0 2px 8px rgba(68, 90, 103, .28); }
 .acts4 .chip.act-調整[aria-checked="true"] { background: #c47a12; box-shadow: 0 2px 8px rgba(196, 122, 18, .28); }
 
+/* ============================================================
+   登入畫面：明曜官網風格
+   服務實拍照拼貼（手機 2×4、平板／電腦 4×2）＋深石板青遮罩、白色 LOGO、玻璃質感輸入框
+   ============================================================ */
+body.loginmode .watermark { display: none; }
+body.loginmode { background: #1c3a40; }
+.lg-world { --lg-font: "Noto Sans TC", -apple-system, BlinkMacSystemFont, "PingFang TC", "Microsoft JhengHei UI", "Microsoft JhengHei", sans-serif;
+  position: relative; min-height: 100vh; min-height: 100dvh; overflow: hidden; display: grid; place-items: center;
+  padding: max(28px, env(safe-area-inset-top)) 20px max(28px, env(safe-area-inset-bottom)); background: #1c3a40; color: #fff; font-family: var(--lg-font); -webkit-font-smoothing: antialiased; }
+/* 背景照片：格與格之間留細縫，像官網首屏 */
+.lg-tiles { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(4, minmax(0, 1fr)); gap: 2px; }
+.lg-tile { background: #24525a center / cover no-repeat; }
+.lg-shade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(28, 58, 64, .74) 0%, rgba(30, 64, 70, .80) 42%, rgba(24, 52, 58, .90) 100%); }
+.lg-arc { position: absolute; width: 140vmax; height: 140vmax; right: -112vmax; top: -40vmax; border-radius: 50%; border: 1px solid rgba(255, 255, 255, .16); box-shadow: inset 0 0 120px rgba(255, 255, 255, .05); pointer-events: none; }
+.lg-waves { position: absolute; left: 0; right: 0; bottom: 0; height: 26vh; min-height: 140px; pointer-events: none; }
+.lg-waves svg { width: 100%; height: 100%; display: block; }
+.lg-wrap { position: relative; z-index: 2; width: min(400px, 100%); display: flex; flex-direction: column; align-items: center; animation: lgIn .6s cubic-bezier(.22, .61, .36, 1) both; }
+@keyframes lgIn { from { opacity: 0; transform: translateY(12px); } }
+.lg-brand { display: flex; flex-direction: column; align-items: center; text-align: center; }
+.lg-logo { width: min(232px, 62vw); height: auto; display: block; filter: drop-shadow(0 2px 10px rgba(0, 0, 0, .25)); }
+.lg-title { margin: 26px 0 0; line-height: 0; }
+.lg-title img { height: clamp(30px, 9vw, 42px); width: auto; filter: drop-shadow(0 2px 8px rgba(0, 0, 0, .3)); }
+.lg-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.lg-divider { display: flex; align-items: center; gap: 14px; margin: 16px 0 30px; color: rgba(255, 255, 255, .85); }
+.lg-divider i { display: block; width: 66px; height: 1px; background: linear-gradient(90deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, .55)); }
+.lg-divider i:last-child { background: linear-gradient(90deg, rgba(255, 255, 255, .55), rgba(255, 255, 255, 0)); }
+.lg-heart { width: 14px; height: 14px; display: block; }
+.lg-heart svg { width: 100%; height: 100%; display: block; }
+/* 輸入框：圓角膠囊、霧面玻璃 */
+.lg-panel { width: 100%; display: flex; flex-direction: column; }
+.lg-fields { display: flex; flex-direction: column; gap: 14px; }
+.lg-fields.shake { animation: lgShake .4s cubic-bezier(.36, .07, .19, .97); }
+@keyframes lgShake { 20%, 60% { transform: translateX(-8px); } 40%, 80% { transform: translateX(8px); } }
+.lg-field { display: flex; align-items: center; gap: 14px; min-height: 58px; padding: 0 22px; border-radius: 999px; cursor: text;
+  background: rgba(255, 255, 255, .13); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .30), 0 6px 20px rgba(0, 0, 0, .12);
+  -webkit-backdrop-filter: blur(14px) saturate(130%); backdrop-filter: blur(14px) saturate(130%); transition: background-color .2s, box-shadow .2s; }
+.lg-field:focus-within { background: rgba(255, 255, 255, .2); box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .75), 0 6px 22px rgba(0, 0, 0, .16); }
+.lg-ico { flex: none; width: 24px; height: 24px; color: rgba(255, 255, 255, .88); display: block; }
+.lg-ico svg { width: 100%; height: 100%; display: block; }
+.lg-inp { flex: 1; min-width: 0; min-height: 54px; border: 0; padding: 0; background: transparent; outline: none; color: #fff; caret-color: #fff;
+  font: 400 17px var(--lg-font); letter-spacing: .06em; }
+.lg-inp::placeholder { color: rgba(255, 255, 255, .72); letter-spacing: .12em; }
+.lg-inp:-webkit-autofill { -webkit-text-fill-color: #fff; -webkit-box-shadow: 0 0 0 40px #3a6268 inset; caret-color: #fff; }
+.lg-eye { flex: none; display: grid; place-items: center; width: 40px; height: 40px; margin-right: -10px; border: 0; border-radius: 50%; background: none; color: rgba(255, 255, 255, .85); cursor: pointer; }
+.lg-eye:hover { background: rgba(255, 255, 255, .1); }
+.lg-eye .lg-ico { width: 22px; height: 22px; }
+/* 記住帳號：白框圓角勾選 */
+.lg-remember { align-self: flex-start; display: inline-flex; align-items: center; gap: 10px; margin: 16px 0 0 22px; min-height: 32px; font-size: 14.5px; letter-spacing: .08em; color: rgba(255, 255, 255, .9); cursor: pointer; }
+.lg-remember input { -webkit-appearance: none; appearance: none; position: relative; width: 20px; height: 20px; margin: 0; border-radius: 6px; border: 1.5px solid rgba(255, 255, 255, .75); background: rgba(255, 255, 255, .08); cursor: pointer; transition: background-color .15s; }
+.lg-remember input:checked { background: #fff; border-color: #fff; }
+.lg-remember input:checked::after { content: ""; position: absolute; left: 6px; top: 2px; width: 5px; height: 10px; border: solid #24525a; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+.lg-remember input:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.lg-msg { min-height: 22px; margin: 10px 22px 12px; font-size: 14px; line-height: 1.5; letter-spacing: .04em; text-align: center; }
+.lg-msg.bad { color: #ffd2c9; }
+.lg-msg.ok { color: #c9f2dc; }
+/* 登入按鈕：淺青漸層膠囊 */
+.lg-btn { display: flex; align-items: center; justify-content: center; gap: 12px; width: 100%; min-height: 58px; border: 0; border-radius: 999px; cursor: pointer;
+  background: linear-gradient(180deg, #a6dcd8 0%, #6fb9b4 48%, #4c9a96 100%); color: #fff; font: 500 19px var(--lg-font); letter-spacing: .3em; text-indent: .3em;
+  text-shadow: 0 1px 2px rgba(20, 60, 60, .35); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .55), inset 0 -2px 6px rgba(20, 70, 70, .25), 0 10px 26px rgba(0, 0, 0, .25);
+  transition: filter .15s, transform .1s; }
+.lg-btn:hover { filter: brightness(1.05); }
+.lg-btn:active { transform: translateY(1px); filter: brightness(.97); }
+.lg-btn:disabled { cursor: progress; filter: saturate(.7); }
+.lg-arrow { width: 22px; height: 22px; color: #fff; text-indent: 0; }
+.lg-btn.busy .lg-arrow { display: none; }
+.lg-spin { display: none; width: 18px; height: 18px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, .4); border-top-color: #fff; animation: lgSpin .8s linear infinite; }
+.lg-btn.busy .lg-spin { display: block; }
+@keyframes lgSpin { to { transform: rotate(360deg); } }
+.lg-foot { margin: 30px 0 0; font-size: 12px; line-height: 1.6; letter-spacing: .06em; color: rgba(255, 255, 255, .6); text-align: center; }
+/* 平板、電腦：照片改 4×2，畫面更寬 */
+@media (min-width: 768px) {
+  .lg-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); }
+  .lg-shade { background: radial-gradient(ellipse 60% 75% at 50% 48%, rgba(26, 56, 62, .9) 0%, rgba(28, 58, 64, .8) 55%, rgba(28, 58, 64, .68) 100%); }
+  .lg-wrap { width: 420px; }
+  .lg-logo { width: 250px; }
+  .lg-title img { height: 46px; }
+}
+/* 手機橫放：畫面很矮，LOGO 與表單左右並排（太窄的視窗維持直排、可捲動） */
+@media (max-height: 560px) and (orientation: landscape) and (min-width: 640px) {
+  .lg-world { padding-top: 14px; padding-bottom: 14px; }
+  .lg-wrap { width: min(760px, 100%); display: grid; grid-template-columns: 1fr minmax(0, 360px); align-items: center; gap: 8px 36px; }
+  .lg-logo { width: 170px; }
+  .lg-title { margin-top: 14px; }
+  .lg-title img { height: 30px; }
+  .lg-divider { margin: 10px 0 0; }
+  .lg-fields { gap: 10px; }
+  .lg-field { min-height: 48px; }
+  .lg-inp { min-height: 44px; }
+  .lg-remember { margin-top: 8px; }
+  .lg-msg { margin: 4px 22px 6px; }
+  .lg-btn { min-height: 50px; }
+  .lg-foot { grid-column: 1 / -1; margin-top: 8px; }
+}
+
+/* 首頁：目前登入的帳號 */
+.whoami { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: var(--label2); padding: 6px 12px; border-radius: 999px; background: var(--fill); }
+.whoami b { color: var(--label); }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
