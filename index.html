@@ -119,6 +119,8 @@ button { cursor: pointer; }
 .chips.compact .chip { min-height: 38px; padding: 5px 12px; border-radius: 10px; }
 .litem .chip { min-height: 40px; padding: 5px 12px; }
 .chip.hint { box-shadow: inset 0 0 0 1.5px #e3a24a; background: #fffaf1; }
+.chip.prev { background: #dcebfa; box-shadow: inset 0 0 0 1.5px #8fb8e2; color: var(--accent-d); font-weight: 600; }
+.prevnote { margin: 0 0 10px; padding: 8px 12px; border-radius: 10px; background: #eef5fc; color: var(--accent-d); font-size: 14px; }
 .affix { color: var(--label2); }
 .notes { display: flex; flex-wrap: wrap; gap: 8px 14px; margin-top: 8px; }
 .notes label { display: flex; align-items: center; gap: 6px; font-size: 14.5px; color: var(--label2); }
@@ -131,6 +133,8 @@ textarea.inp { resize: vertical; line-height: 1.75; min-height: 72px; }
 .inline > span { color: var(--label2); }
 select.inp { width: auto; padding-right: 30px; max-width: 100%; }
 .help { font-size: 13px; color: var(--label3); }
+.affix.or { margin: 0 4px 0 8px; color: var(--label3); }
+.inp.agein.auto { color: var(--accent-d); font-weight: 700; background: var(--accent-tt); }
 
 /* 疼痛量表 */
 .scale { display: grid; grid-template-columns: repeat(11, minmax(34px, 1fr)); gap: 0; max-width: 620px; border-radius: 12px; overflow: hidden; box-shadow: inset 0 0 0 1px var(--sep2); }
@@ -196,6 +200,31 @@ select.inp { width: auto; padding-right: 30px; max-width: 100%; }
 
 .sline { border-radius: 12px; background: var(--fill2); padding: 12px 14px; margin-bottom: 10px; box-shadow: inset 0 0 0 1px var(--sep); }
 .sline .shead { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+/* 週間排程表 */
+.sgridwrap { width: 100%; }
+.sgridscroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.sgrid { border-collapse: separate; border-spacing: 4px; width: 100%; min-width: 340px; table-layout: fixed; }
+.sgrid th { font-weight: 600; font-size: 14px; color: var(--accent-d); background: var(--accent-t); border-radius: 8px; padding: 6px 0; text-align: center; }
+.sgrid th.corner, .sgrid th.slot { width: 3.4em; background: #cfe3f6; }
+.sgrid td { padding: 0; }
+.gcell { width: 100%; min-height: 52px; border: 0; border-radius: 9px; background: var(--card-solid); box-shadow: inset 0 0 0 1px var(--sep2); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 4px 2px; color: var(--label3); cursor: pointer; transition: background-color .15s var(--ease), box-shadow .15s var(--ease); }
+.gcell:hover { box-shadow: inset 0 0 0 1.5px var(--accent); }
+.gcell .plus { font-size: 16px; opacity: .55; }
+.gcell.on { background: var(--accent); color: #fff; box-shadow: 0 2px 6px rgba(58, 116, 176, .28); }
+.gcell.on b { font-size: 15px; line-height: 1.2; }
+.gcell.on small { font-size: 12px; opacity: .92; font-variant-numeric: tabular-nums; }
+.gfoot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 6px; }
+.celldlg .fld { margin-bottom: 12px; }
+/* AA01 */
+.aares { margin-top: 14px; padding: 10px 12px; border-radius: 10px; background: var(--accent-tt); box-shadow: inset 0 0 0 1px var(--sep); }
+.aares .fl { font-weight: 600; color: var(--accent-d); margin-bottom: 6px; }
+.cnt.over { color: #c0392b; font-weight: 600; }
+.kindtag.aa { background: #e6f4ea; color: #1e7a3c; }
+.celldlg .tmwrap { position: relative; flex-wrap: wrap; gap: 8px; }
+.celldlg .tmhint { font-weight: 700; color: var(--accent-d); min-width: 4.5em; }
+.celldlg .tmhint.bad { color: #c0392b; font-weight: 600; }
+.celldlg .tmpicker { position: absolute; left: 0; bottom: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; border: 0; padding: 0; }
+@media (max-width: 420px) { .sgrid { border-spacing: 2px; min-width: 0; } .sgrid th.corner, .sgrid th.slot { width: 2.6em; font-size: 13px; } .gcell { min-height: 48px; } .gcell.on b { font-size: 13px; } .gcell.on small { font-size: 10.5px; } }
 .sline .scode { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--accent-d); }
 .sline .sname { font-weight: 600; }
 .sline .sbody { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: flex-end; }
@@ -475,7 +504,7 @@ body.loginmode { background: #1c3a40; }
 <div id="app"><noscript>這個程式需要瀏覽器開啟 JavaScript 才能使用。</noscript></div>
 <div id="print"></div>
 <script>
-/* 照顧計畫產生器 版本 2026.11.18；完全離線，不連線、不上傳任何資料
+/* 照顧計畫產生器 版本 2026.11.20；完全離線，不連線、不上傳任何資料
    © 明曜居家長照機構 版權所有，未經授權不得複製、修改或散布 */
 /*!
  * html2canvas 1.4.1 <https://html2canvas.hertzen.com>
@@ -949,13 +978,13 @@ var SCHEMA = (function () {
     { id: 'basic', group: '壹', nav: '訪視資訊', title: '壹、訪視基本資訊與長照核定摘要', rows: [
       { label: '訪視', fields: [
         { id: 'visitDate', type: 'date', label: '訪視日期' },
-        { id: 'visitType', type: 'single', label: '訪視類型', options: ['初評', '出備初評', '複評', 'AA01'] },
+        { id: 'visitType', type: 'single', label: '訪視類型', options: ['初評', '出備初評', '複評'] },
         { id: 'withCM', type: 'single', label: '與照專一同家訪', options: ['是', '否'], add: true }
       ] },
       { label: '個案', fields: [
         { id: 'name', type: 'text', label: '個案姓名', w: '10em' },
         { id: 'gender', type: 'single', label: '性別', options: ['男', '女'] },
-        { id: 'age', type: 'number', label: '年齡', suffix: '歲', w: '5em' },
+        { id: 'birthYear', type: 'byear', label: '出生年次／年齡' },
         { id: 'cms', type: 'single', label: 'CMS等級', options: ['2', '3', '4', '5', '6', '7', '8'], prefix: '第', suffix: '級' },
         { id: 'cmsAdj', type: 'multi', label: '', options: ['等級調整'] },
         { id: 'identity', type: 'single', label: '身分別', options: ['第一類', '第二類', '第三類'] },
@@ -989,9 +1018,9 @@ var SCHEMA = (function () {
         { type: 'inline', label: '回診狀況', parts: ['每', { id: 'followN', type: 'number', w: '4em' }, { id: 'followUnit', type: 'single', options: ['週', '月'], compact: 1 }, '回診'] },
         { id: 'hospital', type: 'text', label: '醫院／科別', w: '100%', ph: '如：輔大醫院神經內科' },
         { id: 'transport', type: 'multi', label: '就醫方式', other: true, options: [{ v: '自行前往', add: 1 }, { v: '家人開車接送', l: '家人接送' }, '計程車', '復康巴士', '長照交通(DA01)'] },
-        { id: 'escort', type: 'choice', label: '陪同者' },
+        { id: 'escort', type: 'choice', label: '陪同者', choices: ['居服員'].concat(DATA.relations) },
         { id: 'med', type: 'multi', label: '用藥狀況', options: ['自行拿取服用', '放入藥盒個案自行拿取', '他人拿藥給個案服用', { v: '需他人提醒督促', add: 1 }, '協助磨粉', '協助灌藥', { v: '未服用藥物', add: 1 }] },
-        { id: 'medHelper', type: 'choice', label: '協助用藥者', add: true },
+        { id: 'medHelper', type: 'choice', label: '協助用藥者', choices: ['居服員'].concat(DATA.relations), add: true },
         { id: 'medRegular', type: 'single', label: '服藥規律性', options: ['規律', '偶爾忘記', '不規律'], add: true },
         { id: 'medNote', type: 'text', label: '藥物名稱／特殊處置', w: '100%' }
       ] },
@@ -1112,7 +1141,7 @@ var SCHEMA = (function () {
           { id: 'work', type: 'single', label: '工作', options: ['正職工作', '兼職', '退休', '家管', '無業', '就學'] },
           { id: 'health', type: 'text', label: '健康／體況', w: '100%', ph: '如：有慢性病' },
           { id: 'roles', type: 'multi', label: '角色', options: ['主要照顧者', '主要聯絡人', '次要聯絡人', '主要決策者', '同為長照服務使用對象'] },
-          { id: 'age', type: 'number', label: '年齡', suffix: '歲', w: '5em', showIf: function (m) { return has(m, 'roles', '主要照顧者'); } },
+          { id: 'birthYear', type: 'byear', label: '出生年次／年齡', showIf: function (m) { return has(m, 'roles', '主要照顧者'); } },
           { id: 'visit', type: 'single', label: '探視', options: ['每天探視', '經常探視', '偶爾探視', '休假探視', '不定期探視', '多以電話聯繫', '幾乎無聯繫'], showIf: function (m) { return m.co !== '同住'; } },
           { id: 'note', type: 'textarea', label: '補充', rows: 2, ph: '可提供的協助、工作內容、照顧負荷主訴等' }
         ] },
@@ -1217,7 +1246,89 @@ var SCHEMA = (function () {
     { id: 'output', group: '產出', nav: '產生計畫', title: '產生 CMS 照顧計畫', custom: 'output' }
   ];
 
-  return { sections: sections, has: has };
+  /* ============================================================
+     AA01：依「量表-照顧計畫」AA01 寫法。貳、參、肆與撰寫計畫同格式，
+     個案摘述改為與上次訪視比較；服務規劃、照顧問題、計畫目標沿用撰寫計畫的元件
+     ============================================================ */
+  function pick(id) {
+    for (var i = 0; i < sections.length; i++) {
+      var rows = sections[i].rows || [];
+      for (var j = 0; j < rows.length; j++) for (var k = 0; k < rows[j].fields.length; k++) if (rows[j].fields[k].id === id) return rows[j].fields[k];
+    }
+    return null;
+  }
+  var TREND = ['維持', '進步', '退步'];
+  function aspect(id, label, ph) {
+    return { label: label, fields: [
+      { id: id, type: 'single', label: '與上次比較', options: TREND },
+      { id: id + 'Note', type: 'text', label: '補充說明', w: '100%', ph: ph }
+    ] };
+  }
+  var isKeep = function (f) { return f.aaFreq === '維持不變'; }, isAdj = function (f) { return f.aaFreq === '調整'; };
+  function aaDetail(c) {
+    var on = function (f) { return has(f, 'aaNoteItems', '核定' + c); }, k = 'aa' + c.slice(2);
+    return { label: '核定' + c, showIf: on, fields: [
+      { id: k + 'Date', type: 'date', label: '訪談時間' },
+      { id: k + 'Who', type: 'text', label: '提出對象', w: '10em', ph: '如：案女' },
+      { id: k + 'Reason', type: 'textarea', label: '原因（依據 6 大項何項原則）', rows: 2, ph: '如：個案獨居且主要照顧者因病住院，符合第○項原則' },
+      { id: k + 'JK', type: 'text', label: '評估量表 J、K 項目（地方政府審視認有需要者填寫）', w: '100%', ph: '如：J2、K3' }
+    ] };
+  }
+  var aaSections = [
+    { id: 'aBasic', group: '壹', nav: '訪視資訊', title: '壹、訪視資訊', rows: [
+      { label: '訪視', fields: [pick('visitDate'), pick('withCM')] },
+      { label: '個案', fields: [pick('name'), pick('cms'), pick('identity')] },
+      sections[0].rows.filter(function (r) { return r.label === '在場人員'; })[0],
+      { label: '個管員', fields: [pick('cmName')] }
+    ] },
+    { id: 'aStatus', group: '貳', nav: '1 個案概況', title: '貳、個案摘述【1. 個案概況】', rows: [
+      aspect('aaPhys', '生理面向', '如：下肢較前次無力，室內需持助行器行走'),
+      aspect('aaPsych', '心理面向', '如：情緒平穩，記憶力退化情形無明顯變化'),
+      aspect('aaHome', '居家環境', '如：浴室已加裝扶手'),
+      aspect('aaHabit', '生活習慣', '如：白天多在客廳看電視，午睡時間變長'),
+      { label: '自理能力／前次問題追蹤', fields: [{ id: 'aaStatusNote', type: 'textarea', label: '補充（選填）', rows: 2, ph: '個案自理能力及前一份計畫照顧問題的追蹤情形' }] }
+    ] },
+    { id: 'aCarer', group: '貳', nav: '2 照顧者狀況', title: '貳、個案摘述【2. 照顧者照顧狀況】', rows: [
+      { label: '主要照顧者', fields: [
+        { id: 'aaCarerRel', type: 'choice', label: '主要照顧者', choices: ['外籍看護', '居服員'].concat(DATA.relations) },
+        { id: 'aaCarerLoad', type: 'single', label: '照顧負荷', options: ['可承受', '稍有負荷', '負荷沉重'] }
+      ] },
+      { label: '其他家屬', fields: [
+        { id: 'aaHelp', type: 'single', label: '可提供協助', options: ['有', '無'] },
+        { id: 'aaHelpNote', type: 'text', label: '協助內容', w: '100%', ph: '如：案子假日會回家協助陪同就醫', showIf: function (f) { return f.aaHelp === '有'; } }
+      ] },
+      { label: '補充', fields: [{ id: 'aaCarerNote', type: 'textarea', label: '補充（選填）', rows: 2, ph: '如：案女近期工作較忙，主訴照顧壓力增加' }] }
+    ] },
+    { id: 'aSvc', group: '貳', nav: '3 服務使用狀況', title: '貳、個案摘述【3. 服務使用狀況】', rows: [
+      { label: '服務頻率', fields: [{ id: 'aaFreq', type: 'single', label: '這次服務頻率', options: ['維持不變', '調整'] }] },
+      { label: '目前使用情形', showIf: isKeep, fields: [
+        { id: 'aaUseTime', type: 'text', label: '使用服務時間', w: '16em', ph: '如：每週一三五上午' },
+        { id: 'aaUseContent', type: 'textarea', label: '使用服務內容', rows: 2, ph: '如：協助個案沐浴洗頭及備餐' },
+        { id: 'aaWorker', type: 'single', label: '居服員服務狀況', options: ['服務狀況良好', '服務尚可', '需再溝通'] },
+        { id: 'aaWorkerNote', type: 'text', label: '居服員補充', w: '100%', ph: '如：居服員準時到班，與個案互動良好' },
+        { id: 'aaCoop', type: 'single', label: '個案配合照顧', options: ['配合度佳', '配合度尚可', '偶有抗拒'] }
+      ] },
+      { label: '調整後期待', showIf: isAdj, fields: [
+        { id: 'aaExpect', type: 'textarea', label: '討論後期待使用的服務項目及頻率', rows: 2, ph: '如：增加每週二四BA07協助沐浴及洗頭各1單位' },
+        { id: 'aaImprove', type: 'text', label: '期望改善事項', w: '100%', ph: '如：改善個案身體清潔狀況' }
+      ] },
+      { label: '補充', fields: [{ id: 'aaSvcNote', type: 'textarea', label: '補充（選填）', rows: 2 }] }
+    ] },
+    { id: 'problems', group: '參', nav: '照顧問題', title: '參、照顧問題（勾選並排序前 5 項）', custom: 'problems' },
+    { id: 'plan', group: '肆', nav: '服務規劃', title: '討論後服務使用內容（計畫執行規劃）', custom: 'plan' },
+    { id: 'goals', group: '肆', nav: '計畫目標', title: '肆、照顧計畫目標', custom: 'goals' },
+    { id: 'aNote', group: '備註', nav: '其他備註', title: '其他備註', rows: [
+      { label: '項目', fields: [{ id: 'aaNoteItems', type: 'multi', label: '需註記的項目（可複選）', options: ['核定AA08', '核定AA09', '超額自費需求'] }] },
+      aaDetail('AA08'), aaDetail('AA09'),
+      { label: '超額自費', showIf: function (f) { return has(f, 'aaNoteItems', '超額自費需求'); }, fields: [
+        { id: 'aaSelfPay', type: 'single', label: '個案是否同意自費使用', options: ['同意自費', '不同意自費', '考慮中'] }
+      ] },
+      { label: '其他', fields: [{ id: 'aaNoteFree', type: 'textarea', label: '其他註記（選填）', rows: 2 }] }
+    ] },
+    { id: 'output', group: '產出', nav: '產生計畫', title: '產生 AA01 計畫', custom: 'output' }
+  ];
+
+  return { sections: sections, aaSections: aaSections, has: has };
 })();
 
 /* ============================================================
@@ -1262,6 +1373,17 @@ var NAR = (function () {
   }
   function p2(n) { return (n < 10 ? '0' : '') + n; }
   function rocLong(s) { var r = roc(s); return r ? r.y + '年' + r.m + '月' + r.d + '日' : ''; }
+  /* 出生年次 → 年齡：以訪視日期（沒有則今天）的民國年減年次；也接受直接填西元年 */
+  function ageOf(o, refDate) {
+    var by = parseInt(nz(o && o.birthYear), 10);
+    if (by > 0) {
+      var r = roc(refDate), y = r ? r.y : new Date().getFullYear() - 1911;
+      if (by > 1900) by -= 1911;
+      var a = y - by;
+      return a >= 0 && a < 130 ? String(a) : '';
+    }
+    return nz(o && o.age);
+  }
   function rocDot(s) { var r = roc(s); return r ? r.y + '.' + p2(r.m) + '.' + p2(r.d) : ''; }
   /* 額度區間：自訪視月份起算 12 個月，如 115.11-116.10 */
   function quotaPeriod(s) {
@@ -1317,7 +1439,8 @@ var NAR = (function () {
       return lead + (escort ? '由' + escort + '陪同' : '') + '至' + dest;
     }
     var how;
-    if (escort) how = '由' + escort + others.map(function (v) { return v === '開車接送' ? '開車接送' : '陪同個案' + v; }).join('或');
+    if (escort === '居服員') how = others.map(function (v) { return v === '開車接送' ? '由家人開車接送、居服員陪同' : '由居服員陪同個案' + v; }).join('或');
+    else if (escort) how = '由' + escort + others.map(function (v) { return v === '開車接送' ? '開車接送' : '陪同個案' + v; }).join('或');
     else how = others.map(function (v) { return v === '開車接送' ? '由家人開車接送' : v; }).join('或');
     if (self) return (freq || '平時') + '多自行前往' + dest + '，有需要時' + how;
     return lead + how + '至' + dest;
@@ -1618,7 +1741,7 @@ var NAR = (function () {
       var rw = main.map(function (r, i) { return i > 0 ? r.replace(/^主要/, '') : r; });
       parts.push('為個案' + joinAnd(rw));
     }
-    if (nz(m.age) && roles.indexOf('主要照顧者') >= 0) parts.push(nz(m.age) + '歲');
+    var ma = ageOf(m, f && f.visitDate); if (ma && roles.indexOf('主要照顧者') >= 0) parts.push(ma + '歲');
     var wk = { '正職工作': '平時有正職工作', '兼職': '有兼職工作', '退休': '已退休', '家管': '為家管', '無業': '目前無業', '就學': '仍在就學中' }[m.work]; if (wk) parts.push(wk);
     if (nz(m.health)) parts.push('本身' + stripEnd(m.health));
     if (roles.indexOf('同為長照服務使用對象') >= 0) parts.push('同為長照服務使用對象');
@@ -1747,10 +1870,43 @@ var NAR = (function () {
   }
 
   /* ---------- 服務行（肆、服務規劃） ---------- */
-  function lineN(l) { return l.mode === 'week' ? (+l.n || 0) : l.mode === 'days' ? arr(l.days).length : l.mode === 'daily' ? 7 : 0; }
+  /* 週間排程表：l.grid = { '1am': {u:'3', t:'09:00'}, ... }，星期 1–7 × 上午／中午／下午 */
+  var SLOTS = [['am', '上午'], ['noon', '中午'], ['pm', '下午']];
+  function gridCell(l, d, s) { var c = (l.grid || {})[d + s]; return c && parseFloat(c.u) > 0 ? c : null; }
+  function gridDays(l) {
+    var out = [];
+    for (var d = 1; d <= 7; d++) {
+      var sl = [];
+      SLOTS.forEach(function (s) { var c = gridCell(l, d, s[0]); if (c) sl.push({ lab: s[1], u: String(parseFloat(c.u)), t: nz(c.t) }); });
+      if (sl.length) out.push({ d: d, slots: sl, total: sl.reduce(function (a, x) { return a + parseFloat(x.u); }, 0) });
+    }
+    return out;
+  }
+  function timeTxt(t) { var m = /^(\d{1,2}):(\d{2})/.exec(nz(t)); return m ? (+m[1]) + ':' + m[2] : nz(t); }
+  function gridFreqText(l) {
+    var groups = [], idx = {};
+    gridDays(l).forEach(function (g) {
+      var mixed = g.slots.some(function (x) { return x.u !== g.slots[0].u; });
+      var desc = g.slots.map(function (x) { return x.lab + timeTxt(x.t) + (mixed ? (x.t ? ' ' : '') + x.u + '單位' : ''); }).join('、');
+      var key = desc + (mixed ? '' : '|' + g.slots[0].u);
+      if (!(key in idx)) { idx[key] = groups.length; groups.push({ days: [], desc: desc, u: mixed ? '' : g.slots[0].u, multi: g.slots.length > 1 }); }
+      groups[idx[key]].days.push(g.d);
+    });
+    return groups.map(function (gr, i) {
+      var dp = gr.days.length === 7 ? '每日' : (i === 0 ? '每週' : '') + daysStr(gr.days);
+      return dp + gr.desc + (gr.u ? ((gr.days.length > 1 || gr.multi) ? '各' : /\d$/.test(gr.desc) ? ' ' : '') + gr.u + '單位' : '');
+    }).join('；');
+  }
+  function lineN(l) { return l.mode === 'week' ? (+l.n || 0) : l.mode === 'days' ? arr(l.days).length : l.mode === 'daily' ? 7 : l.mode === 'grid' ? gridDays(l).length : 0; }
   function unitsAuto(l, st) {
     var each = parseFloat(l.each) || 1, n = lineN(l);
     if (l.mode === 'spare') return 1;
+    if (l.mode === 'grid') {
+      if (!n) return '';
+      var gf = (st.weekFactor || {})[n]; if (!gf) return '';
+      var tot = gridDays(l).reduce(function (a, g) { return a + g.total; }, 0);
+      return Math.round(tot * gf / n);
+    }
     if (!n) return '';
     var fac = (st.weekFactor || {})[n]; if (!fac) return '';
     return Math.round(fac * each * 100) / 100;
@@ -1766,6 +1922,7 @@ var NAR = (function () {
     if (l.mode === 'week' && +l.n) return (+l.n === 7 ? '每日' : '每週' + CNT[+l.n] + '天') + '各' + each + '單位';
     if (l.mode === 'days' && arr(l.days).length) return '每週' + daysStr(l.days) + '各' + each + '單位';
     if (l.mode === 'daily') return '每日各' + each + '單位';
+    if (l.mode === 'grid') return gridFreqText(l);
     return '';
   }
   function careLineText(l, st) {
@@ -1799,7 +1956,7 @@ var NAR = (function () {
     else out.push(flag || '暫無需求。');
     return out;
   }
-  function plan(f, st) {
+  function plan(f, st, aa) {
     var out = [];
     out.push('於' + visitPhrase(f) + '，與' + (participants(f) || '個案') + '討論照顧計畫，照顧計畫如下：');
     out.push('照顧計畫');
@@ -1819,6 +1976,7 @@ var NAR = (function () {
     var res = planLines(f, 'pRespite');
     out.push('4.喘息服務' + (res.length && nz(f.pRespitePeriod) ? '(喘息額度區間' + nz(f.pRespitePeriod) + ')' : ''));
     if (res.length) res.forEach(function (l) { out.push(yearLineText(l)); }); else out.push('暫無需求。');
+    if (aa) { var rn = aaRespiteNote(f); if (rn) out.push(rn); }
     var no = 5, sh = planLines(f, 'pShort');
     if (sh.length) {
       out.push((no++) + '.短照服務' + (nz(f.pShortPeriod) ? '(短照額度區間' + nz(f.pShortPeriod) + ')' : ''));
@@ -1828,6 +1986,7 @@ var NAR = (function () {
     if (oth.length) { out.push((no++) + '.其他'); oth.forEach(function (l) { out.push(careLineText(l, st)); }); }
     if (nz(f.planNote)) out.push(nz(f.planNote));
     out.push('個管員：' + nz(f.cmName));
+    if (aa) out.push(AA_SEP);
     return out.join('\n');
   }
 
@@ -2119,6 +2278,124 @@ var NAR = (function () {
   }
 
   /* ============================================================
+     AA01：舊計畫不刪，新內容疊在 CMS 欄位最上方，兩筆之間以 ----- 區隔
+     ============================================================ */
+  var AA_SEP = '-----';
+  var AA_ASPECTS = [['aaPhys', '生理'], ['aaPsych', '心理'], ['aaHome', '居家環境'], ['aaHabit', '生活習慣']];
+  var AA_TREND = { '維持': '無明顯變化', '進步': '較前次進步', '退步': '較前次退化' };
+  var AA_EVAL = ['已達成', '部分達成', '未達成', '持續追蹤'];
+  /* 1、個案概況：有變化或有補充的面向逐項寫，「維持」且沒補充的合併成一句 */
+  function aaStatus(f) {
+    var same = [], parts = [];
+    AA_ASPECTS.forEach(function (a) {
+      var t = AA_TREND[f[a[0]]] ? f[a[0]] : '', n = stripEnd(f[a[0] + 'Note']);
+      if (!t && !n) return;
+      if (t === '維持' && !n) { same.push(a[1]); return; }
+      parts.push(a[1] + '方面' + (t ? AA_TREND[t] : '') + (n ? (t ? '，' : '') + n : ''));
+    });
+    if (same.length) parts.push(joinAnd(same) + '方面' + AA_TREND['維持']);
+    var out = parts.length ? '與上次訪視評估相比，' + parts.join('；') + '。' : '';
+    var x = stripEnd(f.aaStatusNote);
+    return out + (x ? x + '。' : '');
+  }
+  function aaCarer(f) {
+    var p = [];
+    if (nz(f.aaCarerRel)) p.push('主要照顧者為' + nz(f.aaCarerRel));
+    var ld = { '可承受': '主訴可承受照顧負荷', '稍有負荷': '主訴照顧上稍有負荷', '負荷沉重': '主訴照顧負荷沉重' }[f.aaCarerLoad]; if (ld) p.push(ld);
+    if (f.aaHelp === '有') p.push(nz(f.aaHelpNote) || '其他家屬可提供協助');
+    else if (f.aaHelp === '無') p.push('其他家屬無法提供協助');
+    if (nz(f.aaCarerNote)) p.push(f.aaCarerNote);
+    return sent(p);
+  }
+  function aaSvc(f) {
+    var p = [];
+    if (f.aaFreq === '維持不變') {
+      p.push('個案服務頻率無調整');
+      if (nz(f.aaUseTime) || nz(f.aaUseContent)) p.push('目前' + stripEnd(f.aaUseTime) + '使用服務' + (nz(f.aaUseContent) ? '，服務內容為' + stripEnd(f.aaUseContent) : ''));
+      var w = { '服務狀況良好': '居服員服務狀況良好', '服務尚可': '居服員服務狀況尚可', '需再溝通': '居服員服務狀況需再溝通改善' }[f.aaWorker]; if (w) p.push(w);
+      if (nz(f.aaWorkerNote)) p.push(f.aaWorkerNote);
+      var c = { '配合度佳': '個案配合照顧狀況良好', '配合度尚可': '個案配合照顧狀況尚可', '偶有抗拒': '個案偶有抗拒照顧情形' }[f.aaCoop]; if (c) p.push(c);
+    } else if (f.aaFreq === '調整') {
+      p.push('經討論後個案服務頻率需調整');
+      if (nz(f.aaExpect)) p.push('期待' + stripEnd(f.aaExpect));
+      if (nz(f.aaImprove)) p.push('期望' + stripEnd(f.aaImprove));
+    }
+    if (nz(f.aaSvcNote)) p.push(f.aaSvcNote);
+    return sent(p);
+  }
+  /* 「依服務規劃帶入」：把照顧服務各項的頻率寫成一句，供「使用服務內容」參考 */
+  function aaUseFromPlan(f) {
+    return planLines(f, 'pCare').map(function (l) { var fq = freqText(l); return nz(l.code) + nz(l.name) + (fq ? '(' + fq + ')' : ''); }).join('、');
+  }
+  function aaProblems(f) {
+    var out = problems(f);
+    if (nz(f.aaProbFree)) out.push(nz(f.aaProbFree));
+    return out;
+  }
+  function aaGoalLines(f) {
+    var out = [], ev = [];
+    [['aaEvShort', '短期目標'], ['aaEvMid', '中期目標'], ['aaEvLong', '長期目標']].forEach(function (a) { if (AA_EVAL.indexOf(f[a[0]]) >= 0) ev.push(a[1] + f[a[0]]); });
+    if (ev.length || nz(f.aaEvNote)) out.push('前次目標評值：' + clause([ev.join('，'), f.aaEvNote]) + '。');
+    var g = goals(f);
+    out.push('1、短期目標：' + (g.short ? stripEnd(g.short) + '(1個月)' : ''));
+    out.push('2、中期目標：' + (g.mid ? stripEnd(g.mid) + '(3個月)' : ''));
+    out.push('3、長期目標：' + (g.long ? stripEnd(g.long) + '(6個月)' : ''));
+    if (nz(f.aaGoalFree)) out.push(nz(f.aaGoalFree));
+    return out;
+  }
+  function aaGoalText(f, st) {
+    var g = st.headGap, out = [];
+    out.push(s1(f, st));
+    out.push('貳、' + g + '個案摘述：');
+    out.push('1、 個案概況：' + aaStatus(f));
+    out.push('2、 照顧者照顧狀況：' + aaCarer(f));
+    out.push('3、 服務使用狀況：' + aaSvc(f));
+    out.push('參、' + g + '照顧問題：');
+    aaProblems(f).forEach(function (x) { out.push(x); });
+    out.push('肆、' + g + '照顧計畫目標：');
+    aaGoalLines(f).forEach(function (x) { out.push(x); });
+    out.push('個管員：' + nz(f.cmName));
+    out.push(AA_SEP);
+    return out.join('\n');
+  }
+  function aaPlan(f, st) { return plan(f, st, true); }
+  /* 喘息額度註記：本案喘息額度自114年10月至115年09月。（依喘息額度區間） */
+  function aaRespiteNote(f) {
+    if (!planLines(f, 'pRespite').length) return '';
+    var m = /^(\d{2,3})\.(\d{1,2})\s*[-~～至]\s*(\d{2,3})\.(\d{1,2})$/.exec(nz(f.pRespitePeriod));
+    return m ? '本案喘息額度自' + m[1] + '年' + p2(+m[2]) + '月至' + m[3] + '年' + p2(+m[4]) + '月。' : '';
+  }
+  function aaNote(f) {
+    var out = [], items = arr(f.aaNoteItems);
+    ['AA08', 'AA09'].forEach(function (c) {
+      if (items.indexOf('核定' + c) < 0) return;
+      var k = 'aa' + c.slice(2);
+      var p = ['核定' + c + '：於' + (rocLong(f[k + 'Date']) || '○年○月○日') + '訪談' + (nz(f[k + 'Who']) ? '，由' + stripEnd(f[k + 'Who']) + '提出' : '')];
+      if (nz(f[k + 'Reason'])) p.push('原因：' + stripEnd(f[k + 'Reason']));
+      if (nz(f[k + 'JK'])) p.push('符合評估量表' + stripEnd(f[k + 'JK']) + '項目');
+      out.push(clause(p) + '。');
+    });
+    if (items.indexOf('超額自費需求') >= 0)
+      out.push('個案有超額服務需求，若有留用額度可與個管溝通，' + ({ '同意自費': '個案同意自費使用', '不同意自費': '個案不同意自費使用', '考慮中': '個案尚在考慮是否自費使用' }[f.aaSelfPay] || '並與案家討論是否自費使用') + '。');
+    if (nz(f.aaNoteFree)) out.push(stripEnd(f.aaNoteFree) + '。');
+    return out.map(function (x, i) { return (out.length > 1 ? (i + 1) + '、' : '') + x; }).join('\n');
+  }
+  function aaChecks(f) {
+    var w = [];
+    if (!nz(f.name)) w.push({ msg: '尚未填寫個案姓名', sec: 'aBasic', fid: 'name' });
+    if (!nz(f.visitDate)) w.push({ msg: '尚未填寫訪視日期', sec: 'aBasic', fid: 'visitDate' });
+    if (!nz(f.cmName)) w.push({ msg: '尚未填寫個管員姓名', sec: 'aBasic', fid: 'cmName' });
+    if (!aaStatus(f)) w.push({ msg: '個案概況尚未填寫', sec: 'aStatus', fid: 'aaPhys' });
+    if (!nz(f.aaFreq)) w.push({ msg: '服務使用狀況：尚未選擇服務頻率維持或調整', sec: 'aSvc', fid: 'aaFreq' });
+    var n = arr(f.problems).length;
+    if (!n) w.push({ msg: '尚未勾選照顧問題', sec: 'problems', fid: 'probgrid' });
+    else if (n > 5) w.push({ msg: '照顧問題勾了 ' + n + ' 項，AA01 只需列前 5 項', sec: 'problems', fid: 'probgrid' });
+    arr(f.problems).forEach(function (p) { if (!stripEnd(p.desc)) w.push({ msg: '照顧問題「' + p.name + '」尚未寫改善情形', sec: 'problems', fid: 'prob-' + p.no }); });
+    if (!goals(f).short) w.push({ msg: '照顧計畫目標尚未產生（請先選服務規劃）', sec: 'goals', fid: '' });
+    return w;
+  }
+
+  /* ============================================================
      計畫更新／異動（AA01 計畫更新與計畫異動寫法相同）：
      疊加在 CMS 舊計畫上方的兩段文字。舊計畫只在 CMS，程式看不到，
      所以只寫個管師標記為「新增／調整／維持／取消」的服務。
@@ -2291,13 +2568,15 @@ var NAR = (function () {
   var DEFAULT_ST = { weekFactor: { 1: 5, 2: 9, 3: 14, 4: 18, 5: 23, 6: 27, 7: 31 } };
 
   return {
-    nz: nz, arr: arr, vals: vals, joinAnd: joinAnd, rocLong: rocLong, rocDot: rocDot, quotaPeriod: quotaPeriod,
+    nz: nz, arr: arr, vals: vals, joinAnd: joinAnd, rocLong: rocLong, rocDot: rocDot, ageOf: ageOf, quotaPeriod: quotaPeriod,
     s1: s1, phys: phys, psych: psych, family: family, home: home, routine: routine, svc: svc,
     problems: problems, problemDefault: problemDefault, suggestProblems: suggestProblems, suggestCause: suggestCause,
     goals: goals, goalsAuto: goalsAuto, goalText: goalText, plan: plan, careLineText: careLineText, proLineText: proLineText,
     aidLineText: aidLineText, yearLineText: yearLineText, unitsAuto: unitsAuto, unitsOf: unitsOf, freqText: freqText,
     summary: summary, checks: checks, bmiOf: bmiOf, bmiCat: bmiCat, participants: participants,
-    defaultDiscuss: defaultDiscuss, quotaFill: quotaFill, isReview: isReview, planDiff: planDiff, MUSCLE: MUSCLE, MUSCLE_OLD: MUSCLE_OLD,
+    defaultDiscuss: defaultDiscuss, quotaFill: quotaFill, isReview: isReview, planDiff: planDiff, MUSCLE: MUSCLE, MUSCLE_OLD: MUSCLE_OLD, SLOTS: SLOTS, gridDays: gridDays,
+    aaStatus: aaStatus, aaCarer: aaCarer, aaSvc: aaSvc, aaProblems: aaProblems, aaGoalLines: aaGoalLines, aaGoalText: aaGoalText, aaPlan: aaPlan, aaNote: aaNote, aaChecks: aaChecks,
+    aaRespiteNote: aaRespiteNote, aaUseFromPlan: aaUseFromPlan, AA_EVAL: AA_EVAL, AA_SEP: AA_SEP,
     updateTexts: updateTexts, updateChecks: updateChecks, upLineText: upLineText, upAct: upAct, UP_ACTS: UP_ACTS
   };
 })();
@@ -2443,6 +2722,23 @@ var UI = (function () {
     if (!def.prefix && !def.suffix) return inp;
     return h('div', { class: 'inwrap' }, [def.prefix ? h('span', { class: 'affix', text: def.prefix }) : null, inp, def.suffix ? h('span', { class: 'affix', text: def.suffix }) : null]);
   }
+  /* 出生年次／年齡：兩格擇一填。填年次 → 年齡格自動帶出換算結果（以訪視日期為準）；直接填年齡 → 清掉年次 */
+  function byearInput(def, obj, ctx) {
+    function ref() { return (obj.visitDate) || (refDate.fn && refDate.fn()) || ''; }
+    var by, ag;
+    function sync() {
+      if (nz(obj.birthYear)) { obj.age = NAR.ageOf(obj, ref()); ag.value = obj.age; ag.classList.add('auto'); }
+      else ag.classList.remove('auto');
+    }
+    by = h('input', { class: 'inp', type: 'text', inputmode: 'numeric', value: nz(obj.birthYear), placeholder: '如 35', style: 'width:4.5em', 'aria-label': '出生年次', autocomplete: 'off',
+      oninput: function () { obj.birthYear = by.value.replace(/[^\d]/g, ''); if (!obj.birthYear) { obj.age = ''; ag.value = ''; } sync(); ctx.changed(); } });
+    ag = h('input', { class: 'inp agein', type: 'text', inputmode: 'numeric', value: nz(obj.age), placeholder: '歲', style: 'width:4em', 'aria-label': '年齡', autocomplete: 'off',
+      oninput: function () { obj.age = ag.value.replace(/[^\d]/g, ''); obj.birthYear = ''; by.value = ''; sync(); ctx.changed(); } });
+    sync();
+    return h('div', { class: 'inwrap' }, [h('span', { class: 'affix', text: '民國' }), by, h('span', { class: 'affix', text: '年次' }),
+      h('span', { class: 'affix or', text: '或' }), ag, h('span', { class: 'affix', text: '歲' })]);
+  }
+  var refDate = { fn: null };   /* app 設定：回傳目前個案的訪視日期 */
   function dateInput(def, obj, ctx) {
     var inp = h('input', { class: 'inp', type: 'date', value: nz(obj[def.id]), style: 'width:11.5em', 'aria-label': def.label || def.id, onchange: function () { obj[def.id] = inp.value; ctx.changed(); }, oninput: function () { obj[def.id] = inp.value; ctx.changed(); } });
     var roc = h('span', { class: 'help' });
@@ -2698,6 +2994,7 @@ var UI = (function () {
     switch (def.type) {
       case 'text': case 'number': return textInput(def, obj, ctx);
       case 'date': return dateInput(def, obj, ctx);
+      case 'byear': return byearInput(def, obj, ctx);
       case 'textarea': return textareaInput(def, obj, ctx);
       case 'single': return singleInput(def, obj, ctx);
       case 'multi': return multiInput(def, obj, ctx);
@@ -2730,7 +3027,7 @@ var UI = (function () {
   }
 
   return { h: h, clear: clear, uid: uid, store: store, toast: toast, copyText: copyText, download: download, pickFile: pickFile, dialog: dialog, confirmBox: confirmBox,
-    field: field, control: control, deliverFiles: deliverFiles, canShareFiles: canShareFiles, parseCaseFile: parseCaseFile, isIOS: isIOS, textInput: textInput, textareaInput: textareaInput, singleInput: singleInput, multiInput: multiInput, hasValue: hasValue, opts: opts, autoGrow: autoGrow, bodySvg: bodySvg, painSvg: painSvg, MUSCLE_LEGEND: MUSCLE_LEGEND };
+    field: field, control: control, deliverFiles: deliverFiles, canShareFiles: canShareFiles, parseCaseFile: parseCaseFile, isIOS: isIOS, textInput: textInput, textareaInput: textareaInput, singleInput: singleInput, multiInput: multiInput, hasValue: hasValue, opts: opts, autoGrow: autoGrow, bodySvg: bodySvg, painSvg: painSvg, MUSCLE_LEGEND: MUSCLE_LEGEND, refDate: refDate };
 })();
 
 /* 登入帳號（由 tools/make_accounts.js 產生，請勿手改）
@@ -2860,7 +3157,7 @@ var AUTH = (function () {
           h('div', { class: 'lg-divider', 'aria-hidden': 'true' }, [h('i'), svg(ICON.heart, 'lg-heart'), h('i')])
         ]),
         form,
-        h('p', { class: 'lg-foot' }, ['新北市私立明曜居家長照機構社區整合型中心專用　版本 2026.11.18', h('br'), '© 明曜居家長照機構 版權所有，未經授權不得複製、修改或散布'])
+        h('p', { class: 'lg-foot' }, ['新北市私立明曜居家長照機構社區整合型中心專用　版本 2026.11.20', h('br'), '© 明曜居家長照機構 版權所有，未經授權不得複製、修改或散布'])
       ])
     ]));
     setTimeout(function () { (user.value ? pw : user).focus(); }, 60);
@@ -2896,7 +3193,9 @@ var APP = (function () {
   var E = {};                       /* 重要節點 */
   var ctx = { changed: changed, conds: null, refreshConds: refreshConds };
   var SECS = SCHEMA.sections;
-  var GROUPS = [['壹', '訪視資訊'], ['貳', '個案摘述'], ['參', '照顧問題'], ['肆', '照顧計畫'], ['產出', '']];
+  var PLAN_GROUPS = [['壹', '訪視資訊'], ['貳', '個案摘述'], ['參', '照顧問題'], ['肆', '照顧計畫'], ['產出', '']];
+  var AA_GROUPS = [['壹', '訪視資訊'], ['貳', '個案摘述'], ['參', '照顧問題'], ['肆', '照顧計畫'], ['備註', ''], ['產出', '']];
+  var GROUPS = PLAN_GROUPS;
 
   /* ---------- 設定與資料 ---------- */
   function loadSettings() {
@@ -2930,12 +3229,57 @@ var APP = (function () {
     return { id: UI.uid(), kind: 'update', createdAt: Date.now(), updatedAt: Date.now(), changes: [],
       f: { visitDate: today(), cmName: S.st.cmName, upHow: '電訪', pCare: [], pPro: [], pAids: [], pRespite: [], pShort: [], pOther: [], pTransAmt: S.st.transAmount } };
   }
+  /* AA01：獨立一種紀錄（kind:'aa01'），可從清單裡的個案帶入 */
+  function newAA() {
+    var f = blankF(); f.problems = [];
+    return { id: UI.uid(), kind: 'aa01', createdAt: Date.now(), updatedAt: Date.now(), changes: [], f: f };
+  }
+  function isAA(rec) { return !!(rec || S.rec) && (rec || S.rec).kind === 'aa01'; }
+  var AA_CARRY = ['name', 'cms', 'identity', 'withCM', 'clientJoin', 'attendees', 'address', 'phone', 'cmName', 'problems', 'pCare', 'pPro', 'pTrans', 'pTransAmt', 'pVendors',
+    'pAids', 'pRespite', 'pRespitePeriod', 'pShort', 'pShortPeriod', 'pOther', 'careFlags', 'careFlagNote', 'goalVar', 'aaCarerRel', 'aaCarerLoad', 'aaHelp', 'aaHelpNote'];
+  /* AA01 參考用的前次照顧問題：建立時帶入的；沒有的話找清單中同姓名最近一筆撰寫計畫 */
+  /* 這位個案的撰寫計畫紀錄：建立 AA01 時的來源；沒有的話找清單中同姓名最近一筆 */
+  function planRecOf(rec) {
+    if (rec.from && rec.from.kind === 'plan') { var r0 = store.get(K.rec + rec.from.id); if (r0) return r0; }
+    var name = nz(rec.f.name); if (!name) return null;
+    var cand = S.idx.filter(function (m) { return m.id !== rec.id && m.name === name && (m.kind || 'plan') === 'plan'; })
+      .sort(function (a, b) { return (b.updatedAt || 0) - (a.updatedAt || 0); })[0];
+    return cand ? store.get(K.rec + cand.id) : null;
+  }
+  function prevProblemsOf(rec) {
+    if (rec.prevProblems) return { list: rec.prevProblems, src: rec.from };
+    var r = planRecOf(rec);
+    return r ? { list: arr(r.f.problems).map(function (p) { return { no: p.no, name: p.name }; }), src: { date: r.f.visitDate || '' } } : null;
+  }
+  /* 服務沒有改變時，把撰寫計畫的服務規劃整份套入 AA01 */
+  var PLAN_KEYS = ['pCare', 'pPro', 'pTrans', 'pTransAmt', 'pVendors', 'pAids', 'pRespite', 'pRespitePeriod', 'pShort', 'pShortPeriod', 'pOther', 'careFlags', 'careFlagNote', 'planNote'];
+  function planEmpty(f) { return !NAR.summary(f).any && !arr(f.careFlags).length; }
+  function applyPlanFrom(src, f) {
+    var c = JSON.parse(JSON.stringify(src.f));
+    PLAN_KEYS.forEach(function (k) { if (c[k] !== undefined) f[k] = c[k]; else delete f[k]; });
+    arr(f.pCare).concat(arr(f.pPro), arr(f.pAids), arr(f.pRespite), arr(f.pShort), arr(f.pOther)).forEach(function (l) { l.id = UI.uid(); });
+  }
+  function cloneForAA(rec) {
+    var n = newAA(), src = JSON.parse(JSON.stringify(rec.f));
+    AA_CARRY.forEach(function (k) { if (src[k] !== undefined) n.f[k] = src[k]; });
+    /* 照顧問題不直接勾選：記下前次勾選的項目，在清單上用底色標示，由個管重新勾選排序 */
+    n.f.problems = [];
+    n.prevProblems = arr(src.problems).map(function (p) { return { no: p.no, name: p.name }; });
+    if (!nz(n.f.aaCarerRel)) {
+      var mc = arr(src.members).filter(function (m) { return arr(m.roles).indexOf('主要照顧者') >= 0; })[0];
+      if (mc) n.f.aaCarerRel = nz(mc.rel); else if (src.foreign === '有') n.f.aaCarerRel = '外籍看護';
+    }
+    n.f.visitDate = today(); n.f.cmName = nz(src.cmName) || S.st.cmName;
+    n.from = { id: rec.id, kind: rec.kind || 'plan', date: src.visitDate || '' };
+    openRec(n); saveNow(); UI.toast('已帶入「' + (nz(src.name) || '未命名') + '」的資料，請修改這次有變動的地方');
+  }
+  UI.refDate.fn = function () { return S.rec && S.rec.f ? S.rec.f.visitDate : ''; };
   function isUpd(rec) { return !!(rec || S.rec) && (rec || S.rec).kind === 'update'; }
-  /* 訪視類型為單選「初評」「出備初評」「複評」「AA01」：舊資料的「複評/AA01」、['複評']、['初評','AA01'] 等轉成單一值 */
+  /* 訪視類型為單選「初評」「出備初評」「複評」（AA01 已獨立為首頁的 AA01）：舊資料的「AA01」「複評/AA01」、['初評','AA01'] 等轉成單一值，AA01 視同複評 */
   function migrateVisitType(f) {
     if (!f || f.visitType === undefined) return;
     var v = arr(f.visitType);
-    f.visitType = (v.indexOf('複評') >= 0 || v.indexOf('複評/AA01') >= 0) ? '複評' : ['AA01', '出備初評', '初評'].filter(function (x) { return v.indexOf(x) >= 0; })[0] || '';
+    f.visitType = (v.indexOf('複評') >= 0 || v.indexOf('複評/AA01') >= 0 || v.indexOf('AA01') >= 0) ? '複評' : ['出備初評', '初評'].filter(function (x) { return v.indexOf(x) >= 0; })[0] || '';
   }
   /* 改為可複選的欄位：舊資料存的單一字串轉成陣列 */
   function migrateMulti(f) {
@@ -3022,17 +3366,18 @@ var APP = (function () {
   function esc(t) { return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
   function caseName(rec) { return (nz(rec.f.name) || '未命名').replace(/[\\\/:*?"<>|]/g, ''); }
   function outTexts(rec) {
-    var f = rec.f, u = isUpd(rec) ? NAR.updateTexts(f, S.st) : null;
+    var f = rec.f, u = isUpd(rec) ? NAR.updateTexts(f, S.st) : null, aa = isAA(rec);
     return {
-      goal: f.outGoalEdited ? nz(f.outGoal) : (u ? u.goal : NAR.goalText(f, S.st)),
-      plan: f.outPlanEdited ? nz(f.outPlan) : (u ? u.plan : NAR.plan(f, S.st))
+      goal: f.outGoalEdited ? nz(f.outGoal) : (aa ? NAR.aaGoalText(f, S.st) : u ? u.goal : NAR.goalText(f, S.st)),
+      plan: f.outPlanEdited ? nz(f.outPlan) : (aa ? NAR.aaPlan(f, S.st) : u ? u.plan : NAR.plan(f, S.st)),
+      note: aa ? (f.outNoteEdited ? nz(f.outNote) : NAR.aaNote(f)) : ''
     };
   }
   /* 檔名：撰寫計畫「○○○訪視評估表」；更新／異動「○○○計畫更新異動_1151115」（同月份可能有好幾筆，加日期避免覆蓋） */
   function fileBase(rec) {
-    if (!isUpd(rec)) return caseName(rec) + '訪視評估表';
+    if (!isUpd(rec) && !isAA(rec)) return caseName(rec) + '訪視評估表';
     var r = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(nz(rec.f.visitDate));
-    return caseName(rec) + '計畫更新異動' + (r ? '_' + (+r[1] - 1911) + ('0' + r[2]).slice(-2) + ('0' + r[3]).slice(-2) : '');
+    return caseName(rec) + (isAA(rec) ? 'AA01' : '計畫更新異動') + (r ? '_' + (+r[1] - 1911) + ('0' + r[2]).slice(-2) + ('0' + r[3]).slice(-2) : '');
   }
   function formHtml(rec) {
     var data = JSON.stringify({ app: 'care-plan-generator', version: 2, exportedAt: new Date().toISOString(), rec: rec }).replace(/</g, '\\u003c');
@@ -3046,6 +3391,7 @@ var APP = (function () {
   /* ---- 存檔：兩個 PDF（訪視評估表／計畫更新異動、計畫內容），個案資料夾帶在 PDF 內供匯入 ---- */
   function caseNames(rec) {
     var b = fileBase(rec), n = caseName(rec);
+    if (isAA(rec)) return [b + '.pdf'];
     return [b + '.pdf', (isUpd(rec) ? b.replace('計畫更新異動', '計畫更新異動內容') : n + '計畫內容') + '.pdf'];
   }
   function dataJson(rec) { return JSON.stringify({ app: 'care-plan-generator', version: 3, exportedAt: new Date().toISOString(), rec: rec }); }
@@ -3074,6 +3420,7 @@ var APP = (function () {
   function caseFiles(rec, progress) {
     var names = caseNames(rec);
     progress = progress || function () { };
+    if (isAA(rec)) return domToPdf(buildAADom(rec), rec, names[0].replace(/\.pdf$/, ''), progress).then(function (b) { return [{ name: names[0], blob: b, mime: 'application/pdf' }]; });
     return domToPdf(buildFormDom(rec), rec, names[0].replace(/\.pdf$/, ''), function (x) { progress(x * 0.75); }).then(function (b1) {
       return domToPdf(buildPlanDom(rec), rec, names[1].replace(/\.pdf$/, ''), function (x) { progress(0.75 + x * 0.25); }).then(function (b2) {
         return [{ name: names[0], blob: b1, mime: 'application/pdf' }, { name: names[1], blob: b2, mime: 'application/pdf' }];
@@ -3127,7 +3474,7 @@ var APP = (function () {
   }
   /* 產生 PDF 時顯示進度（無法關閉，完成後自動收起） */
   function makePdfs(rec) {
-    var bar = h('div', { class: 'pbar' }, [h('i')]), msg = h('p', { style: 'margin:0 0 10px', text: '正在產生 PDF（訪視評估表、計畫內容），請稍候…' });
+    var bar = h('div', { class: 'pbar' }, [h('i')]), msg = h('p', { style: 'margin:0 0 10px', text: isAA(rec) ? '正在產生 AA01 PDF，請稍候…' : '正在產生 PDF（訪視評估表、計畫內容），請稍候…' });
     var ov = h('div', { class: 'overlay busy' }, [h('div', { class: 'dialog', style: 'width:min(420px,100%)' }, [h('div', { style: 'padding:22px' }, [msg, bar])])]);
     document.body.appendChild(ov);
     return caseFiles(rec, function (x) { bar.firstChild.style.width = Math.round(x * 100) + '%'; })
@@ -3147,7 +3494,7 @@ var APP = (function () {
         } else UI.deliverFiles(files, msg);
       }, failed);
     }
-    if (!FS.ok) { fallback(UI.isIOS ? '請在分享選單選「儲存到檔案」，放到 ' + folderParts(rec).join('／') : '已下載兩個 PDF，請放到 ' + folderParts(rec).join('／') + ' 資料夾'); return; }
+    if (!FS.ok) { fallback(UI.isIOS ? '請在分享選單選「儲存到檔案」，放到 ' + folderParts(rec).join('／') : (isAA(rec) ? '已下載 PDF，請放到 ' : '已下載兩個 PDF，請放到 ') + folderParts(rec).join('／') + ' 資料夾'); return; }
     if (!FS.handle) {
       UI.dialog('還沒有設定存檔資料夾', h('div', null, [
         h('p', { style: 'margin-top:0', text: '選一次存檔資料夾（建議選「照顧計畫產生器」裡的「個案存檔」），之後按「存檔」就會自動依訪視日期放進「' + folderParts(rec).join('／') + '」這類年度、月份資料夾。' }),
@@ -3158,7 +3505,7 @@ var APP = (function () {
     ensurePerm(FS.handle).then(function (ok) {
       if (!ok) { fallback('沒有取得資料夾權限，已改為下載'); return; }
       return makePdfs(rec).then(function (files) {
-        return writeToFolder(FS.handle, rec, files).then(function (where) { UI.toast('已存入 ' + where + '（兩個 PDF）'); }, function () { UI.deliverFiles(files, '無法寫入資料夾，已改為下載'); });
+        return writeToFolder(FS.handle, rec, files).then(function (where) { UI.toast('已存入 ' + where + (isAA(rec) ? '' : '（兩個 PDF）')); }, function () { UI.deliverFiles(files, '無法寫入資料夾，已改為下載'); });
       }, failed);
     }).catch(function () { fallback('無法寫入資料夾，已改為下載'); });
   }
@@ -3183,7 +3530,11 @@ var APP = (function () {
   function isDone(id) {
     var f = S.rec.f;
     switch (id) {
-      case 'basic': return !!(nz(f.name) && nz(f.visitDate) && nz(f.cmName));
+      case 'basic': case 'aBasic': return !!(nz(f.name) && nz(f.visitDate) && nz(f.cmName));
+      case 'aStatus': return !!NAR.aaStatus(f);
+      case 'aCarer': return !!NAR.aaCarer(f);
+      case 'aSvc': return !!NAR.aaSvc(f);
+      case 'aNote': return !!NAR.aaNote(f);
       case 'phys': return NAR.phys(f).length > 0;
       case 'psych': return !!NAR.psych(f);
       case 'family': return NAR.family(f).length > 0;
@@ -3210,12 +3561,24 @@ var APP = (function () {
     E.info.appendChild(h('b', { text: nz(f.name) || '（未填姓名）' }));
     var bits = [];
     if (isUpd()) bits.push('計畫更新／異動');
+    if (isAA()) bits.push('AA01');
     if (NAR.rocLong(f.visitDate)) bits.push((isUpd() ? '' : '訪視 ') + NAR.rocLong(f.visitDate));
     if (f.cms) bits.push('CMS 第' + f.cms + '級');
     E.info.appendChild(document.createTextNode(bits.join('　')));
   }
   function draftText(id) {
     var f = S.rec.f, st = S.st, t, a;
+    if (isAA()) switch (id) {
+      case 'aBasic': return NAR.s1(f, st);
+      case 'aStatus': t = NAR.aaStatus(f); return t ? '1、 個案概況：' + t : '';
+      case 'aCarer': t = NAR.aaCarer(f); return t ? '2、 照顧者照顧狀況：' + t : '';
+      case 'aSvc': t = NAR.aaSvc(f); return t ? '3、 服務使用狀況：' + t : '';
+      case 'problems': a = NAR.aaProblems(f); return a.length ? '參、' + st.headGap + '照顧問題：\n' + a.join('\n') : '';
+      case 'plan': return NAR.aaPlan(f, st);
+      case 'goals': return NAR.goals(f).short ? '肆、' + st.headGap + '照顧計畫目標：\n' + NAR.aaGoalLines(f).join('\n') : '';
+      case 'aNote': return NAR.aaNote(f);
+      case 'output': return null;
+    }
     switch (id) {
       case 'basic': return NAR.s1(f, st);
       case 'phys': a = NAR.phys(f); return a.length ? '1、 生理面向：\n' + a.join('\n') : '';
@@ -3253,13 +3616,14 @@ var APP = (function () {
     var list = h('div', { class: 'caselist' });
     if (!S.idx.length) list.appendChild(h('div', { class: 'emptynote', text: '這台裝置還沒有個案。按上方兩個按鈕開始，或用「匯入存檔」打開之前存的檔案。' }));
     S.idx.slice().sort(function (a, b) { return (b.updatedAt || 0) - (a.updatedAt || 0); }).forEach(function (m) {
-      var d = new Date(m.updatedAt || 0), upd = m.kind === 'update';
+      var d = new Date(m.updatedAt || 0), upd = m.kind === 'update', aa = m.kind === 'aa01';
       list.appendChild(h('div', { class: 'crow' }, [
-        h('div', null, [h('div', { class: 'cname' }, [m.name, h('span', { class: 'kindtag' + (upd ? ' upd' : ''), text: upd ? '更新／異動' : '撰寫計畫' })]),
+        h('div', null, [h('div', { class: 'cname' }, [m.name, h('span', { class: 'kindtag' + (upd ? ' upd' : aa ? ' aa' : ''), text: upd ? '更新／異動' : aa ? 'AA01' : '撰寫計畫' })]),
           h('div', { class: 'cmeta', text: (NAR.rocLong(m.date) ? (upd ? '日期 ' : '訪視日 ') + NAR.rocLong(m.date) + '　' : '') + '最後修改 ' + d.toLocaleString('zh-TW', { hour12: false }) })]),
         h('div', { class: 'cacts' }, [
           h('button', { type: 'button', class: 'btn pri sm', text: '開啟', onclick: function () { var r = store.get(K.rec + m.id); if (r) openRec(normalize(r)); else UI.toast('找不到這筆資料'); } }),
-          upd ? null : h('button', { type: 'button', class: 'btn sm', text: '複製為複評', title: '帶入這次的內容，建立一筆新的複評紀錄', onclick: function () { var r = store.get(K.rec + m.id); if (r) cloneForReview(normalize(r)); } }),
+          upd ? null : h('button', { type: 'button', class: 'btn sm', text: '建立AA01', title: '帶入這位個案的姓名、在場人員、照顧問題與服務規劃，建立一筆新的 AA01', onclick: function () { var r = store.get(K.rec + m.id); if (r) cloneForAA(normalize(r)); } }),
+          upd || aa ? null : h('button', { type: 'button', class: 'btn sm', text: '複製為複評', title: '帶入這次的內容，建立一筆新的複評紀錄', onclick: function () { var r = store.get(K.rec + m.id); if (r) cloneForReview(normalize(r)); } }),
           h('button', { type: 'button', class: 'btn sm', text: '存檔', onclick: function () { var r = store.get(K.rec + m.id); if (r) saveCase(normalize(r)); } }),
           h('button', { type: 'button', class: 'btn sm danger', text: '刪除', onclick: function () {
             UI.confirmBox('刪除個案', '確定刪除「' + m.name + '」在這台裝置上的資料嗎？刪除後無法復原。', '刪除', function () { store.del(K.rec + m.id); S.idx = S.idx.filter(function (x) { return x.id !== m.id; }); store.set(K.idx, S.idx); renderHome(); }, true);
@@ -3271,8 +3635,8 @@ var APP = (function () {
       h('div', { class: 'hero' }, [h('span', { class: 'mark', 'aria-hidden': 'true' }), h('div', null, [h('h1', { text: '照顧計畫產生器' }), h('div', { class: 'org', text: ORG })])]),
       h('p', { class: 'lead', text: '家訪時在手機、平板或電腦上點選評估表，程式會同步寫出可貼進衛福部照顧管理系統（CMS）的「計畫目標」與「計畫執行規劃」。' }),
       h('div', { class: 'modes' }, [
-        h('button', { type: 'button', class: 'mode', onclick: function () { openRec(newRecord()); } }, [h('b', { text: '撰寫計畫' }), h('span', { text: '初評、出備初評、複評、AA01：依訪視評估表從頭寫出完整的計畫目標與計畫執行規劃' })]),
-        h('button', { type: 'button', class: 'mode', onclick: function () { openRec(newUpdate()); } }, [h('b', { text: '計畫更新／異動' }), h('span', { text: '已有舊計畫：只寫體況變化與服務差異，疊加在 CMS 原計畫的最上方' })])
+        h('button', { type: 'button', class: 'mode', onclick: function () { openRec(newRecord()); } }, [h('b', { text: '撰寫計畫' }), h('span', { text: '初評、出備初評、複評：依訪視評估表從頭寫出完整的計畫目標與計畫執行規劃' })]),
+        h('button', { type: 'button', class: 'mode', onclick: function () { openRec(newAA()); } }, [h('b', { text: 'AA01' }), h('span', { text: '舊計畫保留、新內容疊在 CMS 最上方。也可以在下方個案清單按「建立AA01」帶入舊資料' })])
       ]),
       h('div', { class: 'homeacts' }, [
         S.sess ? h('span', { class: 'whoami' }, ['目前登入', h('b', { text: S.sess.name }), '（' + S.sess.u + '）']) : null,
@@ -3308,7 +3672,12 @@ var APP = (function () {
   /* ============================================================
      編輯畫面
      ============================================================ */
-  function openRec(rec) { S.rec = rec; S.sec = rec.kind === 'update' ? 'update' : 'basic'; if (rec.kind === 'update') renderUpdate(); else renderEditor(); }
+  function openRec(rec) {
+    S.rec = rec;
+    if (rec.kind === 'update') { S.sec = 'update'; renderUpdate(); return; }
+    SECS = rec.kind === 'aa01' ? SCHEMA.aaSections : SCHEMA.sections; GROUPS = rec.kind === 'aa01' ? AA_GROUPS : PLAN_GROUPS;
+    S.sec = SECS[0].id; renderEditor();
+  }
   /* 設定變更後重畫目前畫面 */
   function rerender() { if (!S.rec) return; if (isUpd()) renderUpdate(); else showSection(S.sec); }
   function topBar(app) {
@@ -3320,8 +3689,8 @@ var APP = (function () {
         [h('span', { class: 'mark', 'aria-hidden': 'true' }), h('span', { class: 'bt' }, [h('b', { text: '照顧計畫產生器' }), h('small', { text: ORG })])]), E.info, E.save,
       h('div', { class: 'acts' }, [
         h('button', { type: 'button', class: 'btn sm', text: '‹ 返回首頁', title: '回到首頁（個案清單），目前內容會先自動儲存', onclick: goHome }),
-        h('button', { type: 'button', class: 'btn sm pri', text: '存檔', title: isUpd() ? '存出「計畫更新異動」與「計畫更新異動內容」兩個 PDF' : '存出「訪視評估表」與「計畫內容」兩個 PDF', onclick: function () { saveCase(); } }),
-        h('button', { type: 'button', class: 'btn sm', text: isUpd() ? '列印' : '列印評估表', onclick: printForm }),
+        h('button', { type: 'button', class: 'btn sm pri', text: '存檔', title: isAA() ? '存出「AA01」PDF' : isUpd() ? '存出「計畫更新異動」與「計畫更新異動內容」兩個 PDF' : '存出「訪視評估表」與「計畫內容」兩個 PDF', onclick: function () { saveCase(); } }),
+        h('button', { type: 'button', class: 'btn sm', text: isUpd() || isAA() ? '列印' : '列印評估表', onclick: printForm }),
         h('button', { type: 'button', class: 'btn sm', text: '設定', onclick: openSettings }),
         S.sess ? h('button', { type: 'button', class: 'btn sm', text: '登出', title: '登出 ' + S.sess.name + '（' + S.sess.u + '）', onclick: askLogout }) : null
       ])
@@ -3378,6 +3747,7 @@ var APP = (function () {
     pane.appendChild(h('div', { class: 'sechead' }, [h('h1', { text: sec.title })]));
     if (sec.custom) CUSTOM[sec.custom](pane, f);
     else sec.rows.forEach(function (row) { pane.appendChild(buildRow(row, f)); });
+    if (CUSTOM[sec.id + 'After']) CUSTOM[sec.id + 'After'](pane, f);
     var i = secIndex(id), nav = h('div', { class: 'stepnav' });
     nav.appendChild(i > 0 ? h('button', { type: 'button', class: 'btn', text: '上一頁：' + SECS[i - 1].nav, onclick: function () { showSection(SECS[i - 1].id); } }) : h('span'));
     if (i < SECS.length - 1) nav.appendChild(h('button', { type: 'button', class: 'btn pri', text: '下一頁：' + SECS[i + 1].nav, onclick: function () { showSection(SECS[i + 1].id); } }));
@@ -3406,23 +3776,27 @@ var APP = (function () {
     function setCause(v) { f.probCause = v; var i = causeInp.tagName === 'INPUT' ? causeInp : causeInp.querySelector('input'); i.value = v; changed(); }
     var quick = h('div', { class: 'chips compact' });
     ['下肢無力', '四肢無力', '視力影響', '失智症影響', '長期臥床', '體況虛弱'].forEach(function (c) { quick.appendChild(h('button', { type: 'button', class: 'chip', text: c, onclick: function () { setCause(c); } })); });
-    pane.appendChild(block('主要失能原因', [
+    var aa = isAA();
+    if (!aa) pane.appendChild(block('主要失能原因', [
       h('p', { class: 'tip', text: '會用在問題說明的開頭，例如「個案下肢無力，無法自行外出」。之後勾選的問題會自動帶入這個原因。' }),
       h('div', { class: 'inline' }, [causeInp, quick]), sug]));
 
     var grid = h('div', { class: 'probgrid', role: 'group', 'aria-label': '照顧問題清單', 'data-fid': 'probgrid' }), btns = {};
+    var prev = aa ? prevProblemsOf(S.rec) : null, prevNos = prev ? prev.list.map(function (x) { return x.no; }) : [];
+    var prevNote = h('p', { class: 'prevnote' });
     function selected(no) { return arr(f.problems).some(function (p) { return p.no === no; }); }
     DATA.problems.forEach(function (p) {
       var b = h('button', { type: 'button', class: 'chip', role: 'checkbox', onclick: function () {
         if (selected(p.no)) f.problems = f.problems.filter(function (x) { return x.no !== p.no; });
-        else f.problems.push({ no: p.no, name: p.name, desc: NAR.problemDefault(p.no, f) });
+        else f.problems.push({ no: p.no, name: p.name, desc: aa ? '' : NAR.problemDefault(p.no, f) });
         drawSel(); changed();
       } }, [h('span', { class: 'no', text: p.no + '.' }), p.name]);
       btns[p.no] = b; grid.appendChild(b);
     });
     var custName = h('input', { class: 'inp', type: 'text', style: 'width:14em', placeholder: '自訂問題名稱', 'aria-label': '自訂問題名稱' });
     pane.appendChild(block('勾選照顧問題', [
-      h('p', { class: 'tip', text: '請依 CMS 上照專核定的照顧問題清單勾選。底部有橘色標記的項目，是依前面評估內容判斷可能相關的問題，僅供提醒。第 34 項「其他問題」用於未列在前 33 項的特殊狀況。' }),
+      h('p', { class: 'tip', text: aa ? '依 CMS 問題清單勾選，排序前 5 項；下方逐項簡要描述問題改善情形，例如「行走問題：使用助行器可安全行走。」' : '請依 CMS 上照專核定的照顧問題清單勾選。底部有橘色標記的項目，是依前面評估內容判斷可能相關的問題，僅供提醒。第 34 項「其他問題」用於未列在前 33 項的特殊狀況。' }),
+      aa ? prevNote : null,
       grid,
       h('div', { class: 'inline', style: 'margin-top:12px' }, [custName, h('button', { type: 'button', class: 'btn sm', text: '加入自訂問題', onclick: function () {
         var n = nz(custName.value); if (!n) return; f.problems.push({ no: 'c' + UI.uid(), name: n, desc: '' }); custName.value = ''; drawSel(); changed(); } })])
@@ -3432,26 +3806,39 @@ var APP = (function () {
     function drawSel() {
       clear(selBox);
       var ps = arr(f.problems);
-      cnt.textContent = '已選 ' + ps.length + ' 項，依此順序編號';
+      cnt.textContent = '已選 ' + ps.length + ' 項，依此順序編號' + (aa && ps.length > 5 ? '（AA01 只需前 5 項）' : '');
+      cnt.classList.toggle('over', aa && ps.length > 5);
       if (!ps.length) selBox.appendChild(h('div', { class: 'help', text: '尚未勾選。' }));
       ps.forEach(function (p, i) {
-        var ta = h('textarea', { class: 'inp', rows: 2, 'aria-label': p.name + ' 說明', oninput: function () { p.desc = ta.value; UI.autoGrow(ta); changed(); } }); ta.value = nz(p.desc);
+        var ta = h('textarea', { class: 'inp', rows: 2, 'aria-label': p.name + (aa ? ' 改善情形' : ' 說明'), placeholder: aa ? '簡要描述問題改善情形，如：使用助行器可安全行走' : '', oninput: function () { p.desc = ta.value; UI.autoGrow(ta); changed(); } }); ta.value = nz(p.desc);
         setTimeout(function () { UI.autoGrow(ta); }, 0);
         selBox.appendChild(h('div', { class: 'pitem', 'data-fid': 'prob-' + p.no }, [
           h('div', { class: 'pname', text: (i + 1) + '、' + p.name + '：' }), ta,
           h('div', { class: 'pacts' }, [
             i > 0 ? h('button', { type: 'button', class: 'iconbtn', 'aria-label': '上移', text: '↑', onclick: function () { ps.splice(i - 1, 0, ps.splice(i, 1)[0]); drawSel(); changed(); } }) : null,
             i < ps.length - 1 ? h('button', { type: 'button', class: 'iconbtn', 'aria-label': '下移', text: '↓', onclick: function () { ps.splice(i + 1, 0, ps.splice(i, 1)[0]); drawSel(); changed(); } }) : null,
-            typeof p.no === 'number' ? h('button', { type: 'button', class: 'iconbtn', title: '用目前的失能原因重新帶入建議文字', text: '重帶', onclick: function () { p.desc = NAR.problemDefault(p.no, f); drawSel(); changed(); } }) : null,
+            typeof p.no === 'number' && !aa ? h('button', { type: 'button', class: 'iconbtn', title: '用目前的失能原因重新帶入建議文字', text: '重帶', onclick: function () { p.desc = NAR.problemDefault(p.no, f); drawSel(); changed(); } }) : null,
             h('button', { type: 'button', class: 'iconbtn', text: '移除', onclick: function () { f.problems = f.problems.filter(function (x) { return x !== p; }); drawSel(); changed(); } })
           ])
         ]));
       });
     }
-    pane.appendChild(block('問題說明', [selBox], [cnt]));
+    pane.appendChild(block(aa ? '問題改善情形' : '問題說明', [selBox], [cnt]));
+    if (aa) pane.appendChild(block('自由填寫（選填）', [UI.field({ id: 'aaProbFree', type: 'textarea', rows: 2, label: '補充', ph: '會接在照顧問題清單後面' }, f, ctx)]));
     function sync() {
-      var hint = NAR.suggestProblems(f), sc = NAR.suggestCause(f);
-      DATA.problems.forEach(function (p) { btns[p.no].setAttribute('aria-checked', selected(p.no) ? 'true' : 'false'); btns[p.no].classList.toggle('hint', !!hint[p.no] && !selected(p.no)); btns[p.no].title = hint[p.no] ? '依評估內容可能相關' : ''; });
+      var hint = aa ? {} : NAR.suggestProblems(f), sc = aa ? '' : NAR.suggestCause(f);
+      DATA.problems.forEach(function (p) {
+        var was = prevNos.indexOf(p.no) >= 0;
+        btns[p.no].setAttribute('aria-checked', selected(p.no) ? 'true' : 'false');
+        btns[p.no].classList.toggle('hint', !!hint[p.no] && !selected(p.no));
+        btns[p.no].classList.toggle('prev', was && !selected(p.no));
+        btns[p.no].title = was ? '前次撰寫計畫勾選的問題' : hint[p.no] ? '依評估內容可能相關' : '';
+      });
+      if (aa) {
+        var extra = prev ? prev.list.filter(function (x) { return typeof x.no !== 'number'; }).map(function (x) { return x.name; }) : [];
+        prevNote.textContent = prev && prev.list.length ? '淡藍底色＝前次撰寫計畫' + (prev.src && NAR.rocLong(prev.src.date) ? '（' + NAR.rocLong(prev.src.date) + '）' : '') + '勾選的問題，請依這次狀況重新勾選並排序。' + (extra.length ? '前次另有自訂問題：' + extra.join('、') + '。' : '')
+          : '從首頁個案清單按「建立AA01」，或填好個案姓名，這裡會用底色標出前次撰寫計畫勾選的問題。';
+      }
       clear(sug);
       if (sc && sc !== nz(f.probCause)) { sug.appendChild(document.createTextNode('依評估內容建議：')); sug.appendChild(h('button', { type: 'button', class: 'btn ghost sm', text: '帶入「' + sc + '」', onclick: function () { setCause(sc); } })); }
     }
@@ -3537,7 +3924,8 @@ var APP = (function () {
         if (NAR.upAct(l) === '取消') { box.appendChild(body); box.appendChild(prev); prev.textContent = NAR.upLineText(l, 'care', S.st); return; }
         if (NAR.upAct(l) === '調整') body.appendChild(miniFld('原本每月單位數', UI.textInput({ id: 'from', type: 'text', w: '6em', ph: '如：14', aria: '原本每月單位數', inputmode: 'decimal' }, l, lc2)));
       }
-      var modes = [['week', '每週固定天數'], ['days', '指定星期'], ['daily', '每日'], ['spare', '需要時使用']];
+      if (l.mode === 'daily') { l.mode = 'week'; l.n = 7; }   /* 舊資料「每日」＝每週 7 天，產出文字相同 */
+      var modes = [['week', '每週固定天數'], ['days', '指定星期'], ['spare', '需要時使用'], ['grid', '週間排程表']];
       var mbox = h('div', { class: 'chips compact', role: 'radiogroup', 'aria-label': '頻率' });
       modes.forEach(function (m) { mbox.appendChild(h('button', { type: 'button', class: 'chip', role: 'radio', 'aria-checked': l.mode === m[0] ? 'true' : 'false', text: m[1], onclick: function () { l.mode = m[0]; draw(); changed(); } })); });
       body.appendChild(miniFld('頻率', mbox));
@@ -3554,7 +3942,8 @@ var APP = (function () {
         });
         body.appendChild(miniFld('星期', db));
       }
-      if (l.mode !== 'spare') body.appendChild(miniFld('每次單位', UI.textInput({ id: 'each', type: 'number', w: '4.5em', aria: '每次單位' }, l, lc2)));
+      if (l.mode === 'grid') { var gf = miniFld('週間排程表（點格子填組數與時間）', gridTable(l, function () { draw(); changed(); })); gf.classList.add('wide'); body.appendChild(gf); }
+      if (l.mode !== 'spare' && l.mode !== 'grid') body.appendChild(miniFld('每次單位', UI.textInput({ id: 'each', type: 'number', w: '4.5em', aria: '每次單位' }, l, lc2)));
       var auto = NAR.unitsAuto(l, S.st);
       var ui = h('input', { class: 'inp', type: 'text', inputmode: 'decimal', style: 'width:5.5em', 'aria-label': '每月單位數', value: l.unitsManual ? nz(l.units) : String(auto), oninput: function () {
         if (nz(ui.value) === '') { l.unitsManual = false; l.units = ''; } else { l.unitsManual = true; l.units = ui.value; } upd(); changed(); } });
@@ -3572,6 +3961,81 @@ var APP = (function () {
       upd();
     }
     draw(); return box;
+  }
+  /* 週間排程表：列＝上午／中午／下午，欄＝星期一～日；點格子設定組數（單位）與時間 */
+  var WEEKN = ['一', '二', '三', '四', '五', '六', '日'];
+  function gridTable(l, redraw) {
+    l.grid = l.grid || {};
+    var tb = h('table', { class: 'sgrid', 'aria-label': '週間排程表' });
+    tb.appendChild(h('thead', null, [h('tr', null, [h('th', { class: 'corner', text: '時段' })].concat(WEEKN.map(function (n) { return h('th', { text: n }); })))]));
+    var body = h('tbody');
+    NAR.SLOTS.forEach(function (s) {
+      var tr = h('tr', null, [h('th', { class: 'slot', text: s[1] })]);
+      WEEKN.forEach(function (n, i) {
+        var key = (i + 1) + s[0], c = l.grid[key], on = c && parseFloat(c.u) > 0;
+        var btn = h('button', { type: 'button', class: 'gcell' + (on ? ' on' : ''), 'aria-label': '星期' + n + s[1] + (on ? '，' + c.u + '組' + (c.t ? '，' + c.t : '') : '，未排'),
+          onclick: function () { cellDialog(l, key, '星期' + n + '　' + s[1], redraw); } },
+          on ? [h('b', { text: c.u + '組' }), c.t ? h('small', { text: c.t }) : null] : [h('span', { class: 'plus', text: '＋' })]);
+        tr.appendChild(h('td', null, [btn]));
+      });
+      body.appendChild(tr);
+    });
+    tb.appendChild(body);
+    var n = NAR.gridDays(l).length;
+    var foot = h('div', { class: 'gfoot' }, [h('span', { class: 'help', text: n ? '共排 ' + n + ' 天' : '尚未排入任何時段' }),
+      n ? h('button', { type: 'button', class: 'btn sm', text: '全部清除', onclick: function () { l.grid = {}; redraw(); } }) : null]);
+    return h('div', { class: 'sgridwrap' }, [h('div', { class: 'sgridscroll' }, [tb]), foot]);
+  }
+  /* 「0900」「930」「9」「9:30」「９點半」→「09:00」「09:30」；不合理回傳 '' */
+  function normTime(s) {
+    s = nz(s).replace(/[０-９]/g, function (c) { return String.fromCharCode(c.charCodeAt(0) - 0xFEE0); }).replace(/：/g, ':').replace(/\s/g, '');
+    if (!s) return '';
+    var hh, mm, m;
+    if ((m = /^(\d{1,2})[:.點時](\d{0,2})分?$/.exec(s))) { hh = +m[1]; mm = m[2] === '' ? 0 : +m[2]; }
+    else if ((m = /^(\d{1,2})點半$/.exec(s))) { hh = +m[1]; mm = 30; }
+    else if (/^\d{1,4}$/.test(s)) {
+      if (s.length <= 2) { hh = +s; mm = 0; }
+      else if (s.length === 3) { hh = +s.slice(0, 1); mm = +s.slice(1); }
+      else { hh = +s.slice(0, 2); mm = +s.slice(2); }
+    } else return '';
+    if (hh > 23 || mm > 59) return '';
+    return (hh < 10 ? '0' : '') + hh + ':' + (mm < 10 ? '0' : '') + mm;
+  }
+  function cellDialog(l, key, title, redraw) {
+    var c = l.grid[key] || {}, val = { u: nz(c.u) || '1', t: nz(c.t) };
+    var uin = h('input', { class: 'inp', type: 'text', inputmode: 'decimal', value: val.u, style: 'width:5em', 'aria-label': '組數', oninput: function () { val.u = uin.value; syncChips(); } });
+    var chips = h('div', { class: 'chips compact', role: 'radiogroup', 'aria-label': '組數選擇' });
+    function syncChips() { [].forEach.call(chips.children, function (b) { b.setAttribute('aria-checked', b.textContent === nz(val.u) ? 'true' : 'false'); }); }
+    ['1', '2', '3', '4', '5', '6'].forEach(function (v) { chips.appendChild(h('button', { type: 'button', class: 'chip', role: 'radio', text: v, onclick: function () { val.u = v; uin.value = v; syncChips(); } })); });
+    syncChips();
+    /* 時間可直接打字（0900、930、9、9:30 都可以），也可以按「選擇」用時鐘挑 */
+    var hint = h('span', { class: 'help tmhint' });
+    function syncHint() { var n = normTime(tin.value); hint.textContent = !nz(tin.value) ? '' : n ? '→ ' + n : '格式不對，例：0900'; hint.classList.toggle('bad', !!nz(tin.value) && !n); }
+    var tin = h('input', { class: 'inp', type: 'text', inputmode: 'numeric', value: val.t, placeholder: '如 0900', style: 'width:7em', 'aria-label': '時間', autocomplete: 'off',
+      oninput: function () { val.t = tin.value; syncHint(); },
+      onblur: function () { var n = normTime(tin.value); if (n) { tin.value = n; val.t = n; } syncHint(); },
+      onkeydown: function (e) { if (e.key === 'Enter') { e.preventDefault(); okBtn(); } } });
+    var picker = h('input', { type: 'time', tabindex: '-1', 'aria-hidden': 'true', class: 'tmpicker', value: normTime(val.t) || '',
+      onchange: function () { tin.value = picker.value; val.t = picker.value; syncHint(); }, oninput: function () { tin.value = picker.value; val.t = picker.value; syncHint(); } });
+    var pickBtn = h('button', { type: 'button', class: 'btn sm', text: '🕘 選擇', onclick: function () {
+      picker.value = normTime(tin.value) || '09:00';
+      try { if (picker.showPicker) { picker.showPicker(); return; } } catch (e) { }
+      picker.focus(); picker.click(); } });
+    syncHint();
+    var body = h('div', { class: 'celldlg' }, [
+      miniFld('組數（單位）', h('div', { class: 'inwrap' }, [chips, uin, h('span', { class: 'affix', text: '組' })])),
+      miniFld('時間（選填，可直接打 0900）', h('div', { class: 'inwrap tmwrap' }, [tin, hint, pickBtn, picker, h('button', { type: 'button', class: 'btn sm', text: '不填時間', onclick: function () { val.t = ''; tin.value = ''; syncHint(); } })]))]);
+    function okBtn() { var b = [].filter.call(dlg.el.querySelectorAll('footer .btn'), function (x) { return x.textContent === '確定'; })[0]; if (b) b.click(); }
+    var dlg = UI.dialog(title, body, [
+      { label: '清除此格', danger: true, on: function () { delete l.grid[key]; redraw(); } },
+      { label: '取消' },
+      { label: '確定', pri: true, on: function () {
+        var u = nz(val.u).replace(/[^\d.]/g, '');
+        var tt = nz(val.t) ? normTime(val.t) : '';
+        if (nz(val.t) && !tt) { UI.toast('時間格式不對，請輸入如 0900 或 13:30'); tin.focus(); return false; }
+        if (!(parseFloat(u) > 0)) { delete l.grid[key]; } else l.grid[key] = { u: String(parseFloat(u)), t: tt };
+        redraw(); } }]);
+    dlg.el.querySelector('.dialog').style.maxWidth = '460px';
   }
   function simpleLine(l, key, redraw, kind) {
     var box = h('div', { class: 'sline', 'data-fid': 'line-' + l.id }), prev = h('div', { class: 'sprev' });
@@ -3645,7 +4109,27 @@ var APP = (function () {
         if (f.cms) NAR.quotaFill(arr(f[key]), kind, f.cms, DATA.quota, false);      /* 新加入而尚未填單位數的項目自動帶入 */
       } };
   }
+  CUSTOM.aSvcAfter = function (pane, f) {
+    var row = pane.querySelector('[data-fid="aaUseContent"]');
+    if (!row) return;
+    row.appendChild(h('div', { class: 'inline', style: 'margin-top:6px' }, [h('button', { type: 'button', class: 'btn sm', text: '依服務規劃帶入', onclick: function () {
+      var t = NAR.aaUseFromPlan(f);
+      if (!t) { UI.toast('服務規劃還沒有選照顧服務'); return; }
+      f.aaUseContent = t; showSection('aSvc'); changed(); } })]));
+  };
   CUSTOM.plan = function (pane, f) {
+    if (isAA()) {
+      var src = planRecOf(S.rec), when = src ? NAR.rocLong(src.f.visitDate) : '';
+      /* 服務頻率「維持不變」且這頁還沒有內容：自動套入撰寫計畫的服務規劃 */
+      if (src && f.aaFreq === '維持不變' && planEmpty(f)) { applyPlanFrom(src, f); setTimeout(function () { UI.toast('服務沒有調整，已套入' + (when ? when + '的' : '') + '撰寫計畫服務內容'); changed(); }, 0); }
+      pane.appendChild(block('前次撰寫計畫', [
+        h('p', { class: 'tip', text: src ? '找到這位個案的撰寫計畫' + (when ? '（' + when + '）' : '') + '。服務沒有改變時，按下方按鈕整份套入，再修改有變動的項目；服務頻率選「維持不變」且這頁還空白時會自動套入。'
+          : '清單中找不到這位個案的撰寫計畫（請先在「訪視資訊」填個案姓名，或從首頁個案清單按「建立AA01」）。' }),
+        src ? h('button', { type: 'button', class: 'btn', text: '套入前次撰寫計畫的服務規劃', onclick: function () {
+          function go() { applyPlanFrom(src, f); changed(); showSection('plan'); UI.toast('已套入' + (when ? when + '的' : '') + '撰寫計畫服務內容'); }
+          if (planEmpty(f)) go(); else UI.confirmBox('套入前次服務規劃', '這頁已經有內容，套入會以前次撰寫計畫的服務規劃取代，確定嗎？', '套入', go);
+        } }) : null]));
+    }
     if (f.careFlags === undefined && f.foreign === '有') f.careFlags = ['聘有外籍看護'];
     var flags = h('div', { class: 'fields', style: 'padding:0 0 14px' }, [
       UI.field({ id: 'careFlags', type: 'multi', label: '照顧服務註記（寫在【照顧服務】後面）', options: ['聘有外籍看護', '超額服務需求', '例假日服務需求', '晚間服務需求'] }, f, ctx),
@@ -3666,7 +4150,11 @@ var APP = (function () {
     } };
     pane.appendChild(linesBlock('3. 輔具及居家無障礙環境改善服務', 'pAids', 'aids', 'aid', '輔具及無障礙項目', null, aidInfo,
       '內建清單是給付辦法附表四、附表四之一的全部項目，選取視窗依「免評估」「需評估」分開。項目多，可輸入代碼或關鍵字篩選。'));
-    pane.appendChild(linesBlock('4. 喘息服務', 'pRespite', 'respite', 'year', '喘息服務項目', null, quotaField('pRespitePeriod', '喘息額度區間', 'pRespite', 'respite')));
+    var qf = quotaField('pRespitePeriod', '喘息額度區間', 'pRespite', 'respite');
+    if (isAA()) {
+      qf.el.appendChild(h('p', { class: 'help', style: 'margin:8px 0 0', text: 'AA01 會在喘息項目後面依額度區間寫「本案喘息額度自○年○月至○年○月。」' }));
+    }
+    pane.appendChild(linesBlock('4. 喘息服務', 'pRespite', 'respite', 'year', '喘息服務項目', null, qf));
     pane.appendChild(linesBlock('5. 短照服務（聘有外籍看護時）', 'pShort', 'short', 'year', '短照服務項目', null, quotaField('pShortPeriod', '短照額度區間', 'pShort', 'short')));
     pane.appendChild(linesBlock('其他', 'pOther', 'other', 'care', '其他服務項目'));
     pane.appendChild(block('補充說明', [UI.field({ id: 'planNote', type: 'textarea', rows: 2, ph: '會寫在計畫執行規劃最後、個管員署名之前（選填）' }, f, ctx)]));
@@ -3694,7 +4182,17 @@ var APP = (function () {
     var kids = [h('p', { class: 'tip', text: '短、中、長期目標會依「服務規劃」選取的項目與勾選的照顧問題先擬一版。按「換一種寫法」可切換不同的句型與用語，再依個案狀況調整。' }),
       h('div', { class: 'inline', style: 'margin-bottom:14px' }, [vary, varLab]),
       mk('short', '1、短期目標'), mk('mid', '2、中期目標'), mk('long', '3、長期目標'), h('div', { class: 'inline' }, [state, reset])];
+    if (isAA()) {
+      var ev = h('div', { class: 'fields', style: 'padding:0' }, [
+        UI.field({ id: 'aaEvShort', type: 'single', label: '短期目標', options: NAR.AA_EVAL }, f, ctx),
+        UI.field({ id: 'aaEvMid', type: 'single', label: '中期目標', options: NAR.AA_EVAL }, f, ctx),
+        UI.field({ id: 'aaEvLong', type: 'single', label: '長期目標', options: NAR.AA_EVAL }, f, ctx),
+        UI.field({ id: 'aaEvNote', type: 'text', label: '評值說明（選填）', w: '100%', ph: '如：個案已可持助行器於室內安全行走' }, f, ctx)]);
+      pane.appendChild(block('前次目標評值', [h('p', { class: 'tip', text: '依前次（初評）計畫目標評值達成情形，會寫成「前次目標評值：短期目標已達成，…。」放在新目標前面。' }), ev]));
+      kids.splice(1, 0, h('p', { class: 'help', style: 'margin:-6px 0 12px', text: '產出時會自動加上期程：短期(1個月)、中期(3個月)、長期(6個月)。' }));
+    }
     pane.appendChild(block('目標內容', kids));
+    if (isAA()) pane.appendChild(block('自由填寫（選填）', [UI.field({ id: 'aaGoalFree', type: 'textarea', rows: 2, label: '補充', ph: '會接在長期目標後面' }, f, ctx)]));
     setTimeout(function () { fill(true); }, 0);
     S.hooks.push(function () { if (!f.goalEdited) fill(false); });
   };
@@ -3715,6 +4213,7 @@ var APP = (function () {
       h('p', { class: 'tip', text: sub }), ta, ed]);
   }
   CUSTOM.output = function (pane, f) {
+    if (isAA()) return aaOutput(pane, f);
     var review = NAR.isReview(f), prev = S.rec.prev && S.rec.prev.f, fills = [];
     if (review) {
       if (prev && f.rvPlan === undefined) f.rvPlan = NAR.planDiff(f, prev, S.st);
@@ -3751,6 +4250,30 @@ var APP = (function () {
       h('p', { class: 'help', text: '會存出「' + caseName(S.rec) + '訪視評估表.pdf」與「' + caseName(S.rec) + '計畫內容.pdf」。訪視評估表檔之後可以用首頁的「匯入存檔」重新打開，供複評使用。' })]));
   };
 
+  function aaOutput(pane, f) {
+    var fills = [], warnBox = h('div');
+    function drawWarn() {
+      clear(warnBox);
+      var warn = NAR.aaChecks(f), wl = h('ul', { class: 'warnlist' });
+      warn.forEach(function (w) { var sec = SECS[secIndex(w.sec)]; wl.appendChild(h('li', null, [w.msg, h('button', { type: 'button', class: 'btn sm', text: '前往「' + sec.nav + '」填寫', onclick: function () { jumpTo(w.sec, w.fid); } })])); });
+      warnBox.appendChild(warn.length ? wl : h('div', { class: 'okline', text: '必要內容都已填寫。' }));
+      if (warn.length) warnBox.appendChild(h('p', { class: 'help', text: '以上只是提醒，仍然可以直接複製下方文字。' }));
+    }
+    drawWarn(); S.hooks.push(drawWarn);
+    pane.appendChild(block('送出前檢查', [warnBox]));
+    pane.appendChild(h('p', { class: 'tip', text: 'AA01 舊計畫內容不刪除：把下面的文字貼在 CMS 各欄位的最上方，最新日期在最上層，與舊紀錄之間以「-----」區隔（已附在文字最後）。' }));
+    pane.appendChild(h('section', { class: 'block' }, [h('div', { class: 'outgrid' }, [
+      outPanel(f, fills, '計畫目標', '貼在 CMS 計畫目標欄最上方。', 'outGoalEdited', 'outGoal', function () { return NAR.aaGoalText(f, S.st); }),
+      outPanel(f, fills, '計畫執行規劃', '貼在 CMS 計畫執行規劃欄最上方。', 'outPlanEdited', 'outPlan', function () { return NAR.aaPlan(f, S.st); })
+    ])]));
+    pane.appendChild(h('section', { class: 'block' }, [outPanel(f, fills, '其他備註', '貼到 CMS 其他備註欄（沒有勾選項目時為空白，不用貼）。', 'outNoteEdited', 'outNote', function () { return NAR.aaNote(f); }, true)]));
+    S.hooks.push(function () { fills.forEach(function (fn) { fn(); }); });
+    pane.appendChild(block('留存', [h('div', { class: 'inline' }, [
+      h('button', { type: 'button', class: 'btn', text: '列印（可另存 PDF）', onclick: printForm }),
+      h('button', { type: 'button', class: 'btn pri', text: '存檔（AA01 PDF）', onclick: function () { saveCase(); } })]),
+      h('p', { class: 'help', text: '會存出「' + fileBase(S.rec) + '.pdf」，之後可以用首頁的「匯入存檔」重新打開。' })]));
+  }
+
   /* ============================================================
      計畫更新／異動（AA01 計畫更新、計畫異動）：一頁短表單
      ============================================================ */
@@ -3764,60 +4287,10 @@ var APP = (function () {
     refreshConds(); setSaveState('saved'); refreshTop();
     window.scrollTo(0, 0);
   }
+  /* 計畫更新／異動：舊版內容已清除，等待新版設計 */
   CUSTOM.update = function (pane, f) {
-    var fills = [];
-    if (!f.upRest) f.upRest = '寫';
-    pane.appendChild(h('div', { class: 'sechead' }, [h('h1', { text: '計畫更新／異動' }),
-      h('span', { class: 'lead', text: 'AA01 計畫更新與計畫異動寫法相同：寫一段貼在 CMS 兩個欄位最上方的文字，原本的計畫保留在下面。' })]));
-    pane.appendChild(block('基本資料', [h('div', { class: 'fields', style: 'padding:0' }, [
-      UI.field({ id: 'name', type: 'text', label: '個案姓名', w: '10em' }, f, ctx),
-      UI.field({ id: 'visitDate', type: 'date', label: '日期' }, f, ctx),
-      UI.field({ id: 'upHow', type: 'single', label: '方式', options: ['電訪', '家訪', '服務單位通報'] }, f, ctx),
-      UI.field({ id: 'upWith', type: 'text', label: '討論對象', w: '14em', ph: '如：案女、案兄及案女' }, f, ctx),
-      UI.field({ id: 'cmName', type: 'text', label: '個管員姓名', w: '10em' }, f, ctx),
-      UI.field({ id: 'upReason', type: 'textarea', label: '原因（接在第一句後面，選填）', rows: 2, ph: '如：個案近期下肢較無力，服務需求變更' }, f, ctx)])]));
-    pane.appendChild(block('本次體況變化', [
-      h('p', { class: 'tip', text: '寫成「本次體況：…。」放在計畫目標欄的段落裡；沒有變化可留空。' }),
-      h('div', { class: 'fields', style: 'padding:0' }, [UI.field({ id: 'upCond', type: 'textarea', label: '本次體況', rows: 3, ph: '如：個案下肢較無力，行走需以輪椅代步，外出需有人陪同' }, f, ctx)])]));
-
-    pane.appendChild(h('div', { class: 'sechead subhead' }, [h('h2', { text: '服務差異' }),
-      h('span', { class: 'lead', text: 'CMS 上的舊計畫程式看不到，請只選這次有變動的服務，每一項標「新增／調整／維持／取消」。標「調整」時填原本的單位數，會寫成「由○調整為○」。' })]));
-    pane.appendChild(block('「其餘服務維持不變」', [h('div', { class: 'fields', style: 'padding:0' }, [
-      UI.field({ id: 'upRest', type: 'single', label: '寫在「與前次計畫不同之處」最後', options: ['寫', '不寫'] }, f, ctx)])]));
-    pane.appendChild(linesBlock('照顧服務', 'pCare', 'care', 'care', '照顧服務項目'));
-    pane.appendChild(linesBlock('專業服務', 'pPro', 'pro', 'pro', '專業服務項目'));
-    var showT = function (x) { return !!x.upTrans && x.upTrans !== '取消'; };
-    pane.appendChild(block('交通接送服務', [h('div', { class: 'fields', style: 'padding:0' }, [
-      UI.field({ id: 'upTrans', type: 'single', label: 'DA01 交通接送（有變動才選）', options: NAR.UP_ACTS }, f, ctx),
-      UI.field({ id: 'pTransAmt', type: 'text', label: '額度', suffix: '元/月', w: '6em', showIf: showT }, f, ctx),
-      UI.field({ id: 'upTransFrom', type: 'text', label: '原本額度', suffix: '元/月', w: '6em', showIf: function (x) { return x.upTrans === '調整'; } }, f, ctx),
-      UI.field({ id: 'pVendors', type: 'multi', label: '服務單位', other: true, options: arr(S.st.vendors), showIf: showT }, f, ctx)])]));
-    pane.appendChild(linesBlock('輔具及居家無障礙環境改善服務', 'pAids', 'aids', 'aid', '輔具及無障礙項目'));
-    function period(id, label) { return { el: h('div', { class: 'fields', style: 'padding:10px 0 0' }, [UI.field({ id: id, type: 'text', label: label, w: '11em', ph: '如：115.11-116.10' }, f, ctx)]) }; }
-    pane.appendChild(linesBlock('喘息服務', 'pRespite', 'respite', 'year', '喘息服務項目', null, period('pRespitePeriod', '喘息額度區間（選填）')));
-    pane.appendChild(linesBlock('短照服務', 'pShort', 'short', 'year', '短照服務項目', null, period('pShortPeriod', '短照額度區間（選填）')));
-    pane.appendChild(linesBlock('其他', 'pOther', 'other', 'care', '其他服務項目'));
-    pane.appendChild(block('補充說明', [UI.field({ id: 'planNote', type: 'textarea', rows: 2, ph: '會寫在計畫執行規劃段落最後、個管員署名之前（選填）' }, f, ctx)]));
-
-    var warnBox = h('div');
-    function drawWarn() {
-      clear(warnBox);
-      var warn = NAR.updateChecks(f), wl = h('ul', { class: 'warnlist' });
-      warn.forEach(function (w) { wl.appendChild(h('li', null, [w.msg, h('button', { type: 'button', class: 'btn sm', text: '前往填寫', onclick: function () { jumpTo('update', w.fid); } })])); });
-      warnBox.appendChild(warn.length ? wl : h('div', { class: 'okline', text: '必要內容都已填寫。' }));
-      if (warn.length) warnBox.appendChild(h('p', { class: 'help', text: '以上只是提醒，仍然可以直接複製下方文字。' }));
-    }
-    drawWarn(); S.hooks.push(drawWarn);
-    pane.appendChild(block('送出前檢查', [warnBox]));
-    pane.appendChild(h('section', { class: 'block' }, [h('div', { class: 'outgrid' }, [
-      outPanel(f, fills, '計畫目標欄段落', '貼在 CMS 計畫目標欄的最上方，原本的內容保留在下面。', 'outGoalEdited', 'outGoal', function () { return NAR.updateTexts(f, S.st).goal; }, true),
-      outPanel(f, fills, '計畫執行規劃欄段落', '貼在 CMS 計畫執行規劃欄的最上方。', 'outPlanEdited', 'outPlan', function () { return NAR.updateTexts(f, S.st).plan; }, true)
-    ])]));
-    S.hooks.push(function () { fills.forEach(function (fn) { fn(); }); });
-    pane.appendChild(block('留存', [h('div', { class: 'inline' }, [
-      h('button', { type: 'button', class: 'btn', text: '列印（可另存 PDF）', onclick: printForm }),
-      h('button', { type: 'button', class: 'btn pri', text: '存檔', onclick: function () { saveCase(); } })]),
-      h('p', { class: 'help', text: '會存出「' + fileBase(S.rec) + '.pdf」與內容 PDF，兩個都可以用首頁「匯入存檔」重新打開。' })]));
+    pane.appendChild(h('div', { class: 'sechead' }, [h('h1', { text: '計畫更新／異動' })]));
+    pane.appendChild(block('新版製作中', [h('p', { class: 'help', style: 'margin:0', text: '這一頁正在重新設計，內容會陸續加入。' })]));
   };
 
 
@@ -3829,6 +4302,12 @@ var APP = (function () {
   function ck(on, t, note) { return h('span', { class: 'o' + (on ? ' on' : '') }, [h('i', { 'aria-label': on ? '已勾選' : '未勾選' }), t + (note ? '（' + note + '）' : '')]); }
   function blankEl(t) { return h('span', { class: 'blank', text: t || '＿＿＿＿' }); }
   function valEl(t, pre, suf) { return nz(t) ? h('span', { class: 'val', text: (pre || '') + nz(t) + (suf || '') }) : blankEl(); }
+  /* 出生年次的呈現：「民國35年次（80歲）」；舊資料只有年齡就顯示「80歲」 */
+  function byText(o) {
+    var a = NAR.ageOf(o, o.visitDate || (S.rec && S.rec.f ? S.rec.f.visitDate : ''));
+    if (nz(o.birthYear)) return '民國' + nz(o.birthYear) + '年次' + (a ? '（' + a + '歲）' : '');
+    return a ? a + '歲' : '';
+  }
   function fkey(def) { return def.label ? def.label.replace(/（.*?）/g, '') : ''; }
   /* 回傳 {k, v:[節點]}（一行）或 {k, blk:節點}（整塊），不顯示時回傳 null */
   function pv(def, obj) {
@@ -3868,6 +4347,7 @@ var APP = (function () {
         return { k: '身高體重', v: [document.createTextNode('身高 '), valEl(obj.height), document.createTextNode(' cm　體重 '), valEl(obj.weight), document.createTextNode(' kg　BMI '),
           b ? valEl(b + '（' + NAR.bmiCat(b) + '）') : blankEl(), arr(obj.wtUnknown).length ? document.createTextNode('（未測量）') : null].filter(Boolean) };
       case 'date': return { k: k, v: [NAR.rocLong(obj[def.id]) ? valEl(NAR.rocLong(obj[def.id])) : blankEl('＿＿年＿＿月＿＿日')] };
+      case 'byear': return { k: nz(obj.birthYear) ? k : '年齡', v: [byText(obj) ? valEl(byText(obj)) : blankEl()] };
       case 'sketch': return obj[def.id] ? { k: k, blk: h('img', { class: 'sk', src: obj[def.id], alt: '手繪圖' }) } : null;
       case 'list':
         var items = arr(obj[def.id]), wrap = h('div');
@@ -3875,9 +4355,9 @@ var APP = (function () {
           var kids = [h('b', { text: '(' + (i + 1) + ')' })];
           def.item.forEach(function (fd) {
             if (fd.showIf && !fd.showIf(it)) return;
-            var t = fd.type === 'multi' ? arr(it[fd.id]).join('、') : nz(it[fd.id]);
+            var t = fd.type === 'multi' ? arr(it[fd.id]).join('、') : fd.type === 'byear' ? byText(it) : nz(it[fd.id]);
             if (!t) return;
-            kids.push(h('span', { class: 'kv' }, [h('span', { text: fkey(fd) + '：' }), t + (fd.suffix || '')]));
+            kids.push(h('span', { class: 'kv' }, [h('span', { text: (fd.type === 'byear' && !nz(it.birthYear) ? '年齡' : fkey(fd)) + '：' }), t + (fd.suffix || '')]));
           });
           wrap.appendChild(h('div', { class: 'mem' }, kids));
         });
@@ -3901,6 +4381,19 @@ var APP = (function () {
   function sigBlock(f) {
     return h('div', { class: 'sig' }, [h('div', null, [h('span', { text: '個案管理員簽章' }), h('b', { text: nz(f.cmName) })]), h('div', null, [h('span', { text: '督導審核簽章' })]), h('div', null, [h('span', { text: '審核日期' })])]);
   }
+  /* AA01 列印版／PDF：基本資料＋三段要貼到 CMS 的文字 */
+  function buildAADom(rec) {
+    var f = rec.f, t = outTexts(rec);
+    var p = formHead('AA01　照顧計畫', rec, [['個案姓名', f.name], ['訪視日期', NAR.rocLong(f.visitDate)], ['CMS等級', f.cms ? '第' + f.cms + '級' : ''], ['與照專同訪', f.withCM], ['個管員', f.cmName]]);
+    p.appendChild(h('h2', null, ['計畫目標', h('small', { text: '貼在 CMS 計畫目標欄最上方，舊內容保留在下面' })]));
+    p.appendChild(h('div', { class: 'ptext', text: t.goal }));
+    p.appendChild(h('h2', null, ['計畫執行規劃', h('small', { text: '貼在 CMS 計畫執行規劃欄最上方' })]));
+    p.appendChild(h('div', { class: 'ptext', text: t.plan }));
+    if (nz(t.note)) { p.appendChild(h('h2', null, ['其他備註', h('small', { text: '貼到 CMS 其他備註欄' })])); p.appendChild(h('div', { class: 'ptext', text: t.note })); }
+    p.appendChild(sigBlock(f));
+    p.appendChild(h('div', { class: 'ft', text: ORG + '　本表由照顧計畫產生器產出' }));
+    return p;
+  }
   /* 計畫更新／異動的列印版：基本資料＋兩段文字 */
   function buildUpdateDom(rec) {
     var f = rec.f, t = outTexts(rec), p = formHead('計畫更新／異動紀錄', rec, [['個案姓名', f.name], ['日期', NAR.rocLong(f.visitDate)], ['方式', f.upHow], ['討論對象', f.upWith], ['個管員', f.cmName]]);
@@ -3918,9 +4411,10 @@ var APP = (function () {
   }
   function buildFormDom(rec) {
     if (isUpd(rec)) return buildUpdateDom(rec);
+    if (isAA(rec)) return buildAADom(rec);
     var f = rec.f, t = outTexts(rec);
     var p = formHead('A單位個案管理員　家庭訪視評估表', rec, [['個案姓名', f.name], ['訪視日期', NAR.rocLong(f.visitDate)], ['訪視類型', f.visitType], ['CMS等級', f.cms ? '第' + f.cms + '級' : ''], ['與照專同訪', f.withCM]]);
-    SECS.forEach(function (sec) {
+    SCHEMA.sections.forEach(function (sec) {
       if (sec.custom) return;
       var m = /^(.*?)【(.*)】$/.exec(sec.title);
       p.appendChild(h('h2', null, m ? [m[2], h('small', { text: m[1].replace(/、$/, '') })] : [sec.title]));
@@ -4006,8 +4500,8 @@ var APP = (function () {
   function openHelp() {
     var d = h('div', { class: 'helpdoc' });
     function sec(t, items, ordered) { d.appendChild(h('h3', { text: t })); d.appendChild(h(ordered ? 'ol' : 'ul', null, items.map(function (x) { return h('li', { text: x }); }))); }
-    sec('首頁兩個入口', ['「撰寫計畫」：初評、出備初評、複評、AA01，依訪視評估表從頭寫出完整計畫。',
-      '「計畫更新／異動」：已有舊計畫（在 CMS 上）時使用，只寫體況變化與服務差異，貼在 CMS 兩個欄位的最上方。']);
+    sec('首頁兩個入口', ['「撰寫計畫」：初評、出備初評、複評，依訪視評估表從頭寫出完整計畫。',
+      '「AA01」：舊計畫保留，新內容貼在 CMS 各欄位最上方，與舊紀錄以「-----」區隔。']);
     sec('撰寫計畫的流程', [
       '按「撰寫計畫」。複評時可改用清單上的「複製為複評」，會帶入上次內容並比對服務差異。',
       '依左側 壹 → 貳 的分頁點選評估內容。每個分頁右側（平板在底部）會即時顯示這一段的計畫文字。',
@@ -4016,9 +4510,13 @@ var APP = (function () {
       '到「產生計畫」檢查提醒事項，分別複製「計畫目標」「計畫執行規劃」貼到 CMS。',
       '按右上角「存檔」，存出「○○訪視評估表.pdf」與「○○計畫內容.pdf」兩個 PDF。',
       '需要紙本或 PDF 時，按「列印評估表」。'], true);
-    sec('計畫更新／異動的流程', ['按「計畫更新／異動」，填日期、方式、討論對象與本次體況。',
-      '只選這次有變動的服務，每一項標「新增／調整／維持／取消」；「調整」要填原本的單位數，會寫成「由○調整為○」。',
-      '複製「計畫目標欄段落」「計畫執行規劃欄段落」，分別貼在 CMS 兩個欄位的最上方，原本的內容保留在下面。']);
+    sec('AA01 的流程', ['在個案清單按「建立AA01」，會帶入姓名、在場人員與服務規劃（也可以按首頁的「AA01」從空白開始，填好姓名後會找到同姓名的撰寫計畫）。',
+      '「個案概況」：生理、心理、居家環境、生活習慣各點「維持／進步／退步」並補充；再填照顧者狀況與服務使用狀況。',
+      '「照顧問題」：淡藍底色是前次撰寫計畫勾選的問題，重新勾選排序前 5 項，逐項寫改善情形。',
+      '「服務規劃」：服務頻率選「維持不變」時，會自動套入前次撰寫計畫的服務內容；也可以按「套入前次撰寫計畫的服務規劃」。',
+      '「計畫目標」：先評值前次目標（已達成／部分達成…），新的短中長期目標自動產生並加上 1／3／6 個月。',
+      '「其他備註」：核定 AA08／AA09 或有超額自費需求時勾選填寫。',
+      '「產生計畫」複製三段文字，分別貼在 CMS 計畫目標、計畫執行規劃欄最上方及其他備註欄；存檔會存出「○○○AA01_日期.pdf」。'], true);
     sec('存檔與資料夾', ['電腦（Chrome 或 Edge）：第一次按「存檔」時選一次存檔資料夾，之後會自動依訪視日期存進「115年度／11月」這類子資料夾。',
       'iPad（Safari）：按「存檔」會跳出分享選單，請選「儲存到檔案」並自行選資料夾；Safari 無法自動分資料夾。',
       '存出的 PDF 可直接列印或傳給督導；PDF 內夾帶個案資料，在任何一台裝置用首頁的「匯入存檔」選 PDF 就能重新打開編輯（舊版存的 html 檔也可以）。',
