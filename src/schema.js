@@ -12,13 +12,13 @@ var SCHEMA = (function () {
     { id: 'basic', group: '壹', nav: '訪視資訊', title: '壹、訪視基本資訊與長照核定摘要', rows: [
       { label: '訪視', fields: [
         { id: 'visitDate', type: 'date', label: '訪視日期' },
-        { id: 'visitType', type: 'single', label: '訪視類型', options: ['初評', '出備初評', '複評', 'AA01'] },
+        { id: 'visitType', type: 'single', label: '訪視類型', options: ['初評', '出備初評', '複評'] },
         { id: 'withCM', type: 'single', label: '與照專一同家訪', options: ['是', '否'], add: true }
       ] },
       { label: '個案', fields: [
         { id: 'name', type: 'text', label: '個案姓名', w: '10em' },
         { id: 'gender', type: 'single', label: '性別', options: ['男', '女'] },
-        { id: 'age', type: 'number', label: '年齡', suffix: '歲', w: '5em' },
+        { id: 'birthYear', type: 'byear', label: '出生年次／年齡' },
         { id: 'cms', type: 'single', label: 'CMS等級', options: ['2', '3', '4', '5', '6', '7', '8'], prefix: '第', suffix: '級' },
         { id: 'cmsAdj', type: 'multi', label: '', options: ['等級調整'] },
         { id: 'identity', type: 'single', label: '身分別', options: ['第一類', '第二類', '第三類'] },
@@ -52,9 +52,9 @@ var SCHEMA = (function () {
         { type: 'inline', label: '回診狀況', parts: ['每', { id: 'followN', type: 'number', w: '4em' }, { id: 'followUnit', type: 'single', options: ['週', '月'], compact: 1 }, '回診'] },
         { id: 'hospital', type: 'text', label: '醫院／科別', w: '100%', ph: '如：輔大醫院神經內科' },
         { id: 'transport', type: 'multi', label: '就醫方式', other: true, options: [{ v: '自行前往', add: 1 }, { v: '家人開車接送', l: '家人接送' }, '計程車', '復康巴士', '長照交通(DA01)'] },
-        { id: 'escort', type: 'choice', label: '陪同者' },
+        { id: 'escort', type: 'choice', label: '陪同者', choices: ['居服員'].concat(DATA.relations) },
         { id: 'med', type: 'multi', label: '用藥狀況', options: ['自行拿取服用', '放入藥盒個案自行拿取', '他人拿藥給個案服用', { v: '需他人提醒督促', add: 1 }, '協助磨粉', '協助灌藥', { v: '未服用藥物', add: 1 }] },
-        { id: 'medHelper', type: 'choice', label: '協助用藥者', add: true },
+        { id: 'medHelper', type: 'choice', label: '協助用藥者', choices: ['居服員'].concat(DATA.relations), add: true },
         { id: 'medRegular', type: 'single', label: '服藥規律性', options: ['規律', '偶爾忘記', '不規律'], add: true },
         { id: 'medNote', type: 'text', label: '藥物名稱／特殊處置', w: '100%' }
       ] },
@@ -175,7 +175,7 @@ var SCHEMA = (function () {
           { id: 'work', type: 'single', label: '工作', options: ['正職工作', '兼職', '退休', '家管', '無業', '就學'] },
           { id: 'health', type: 'text', label: '健康／體況', w: '100%', ph: '如：有慢性病' },
           { id: 'roles', type: 'multi', label: '角色', options: ['主要照顧者', '主要聯絡人', '次要聯絡人', '主要決策者', '同為長照服務使用對象'] },
-          { id: 'age', type: 'number', label: '年齡', suffix: '歲', w: '5em', showIf: function (m) { return has(m, 'roles', '主要照顧者'); } },
+          { id: 'birthYear', type: 'byear', label: '出生年次／年齡', showIf: function (m) { return has(m, 'roles', '主要照顧者'); } },
           { id: 'visit', type: 'single', label: '探視', options: ['每天探視', '經常探視', '偶爾探視', '休假探視', '不定期探視', '多以電話聯繫', '幾乎無聯繫'], showIf: function (m) { return m.co !== '同住'; } },
           { id: 'note', type: 'textarea', label: '補充', rows: 2, ph: '可提供的協助、工作內容、照顧負荷主訴等' }
         ] },
@@ -280,5 +280,87 @@ var SCHEMA = (function () {
     { id: 'output', group: '產出', nav: '產生計畫', title: '產生 CMS 照顧計畫', custom: 'output' }
   ];
 
-  return { sections: sections, has: has };
+  /* ============================================================
+     AA01：依「量表-照顧計畫」AA01 寫法。貳、參、肆與撰寫計畫同格式，
+     個案摘述改為與上次訪視比較；服務規劃、照顧問題、計畫目標沿用撰寫計畫的元件
+     ============================================================ */
+  function pick(id) {
+    for (var i = 0; i < sections.length; i++) {
+      var rows = sections[i].rows || [];
+      for (var j = 0; j < rows.length; j++) for (var k = 0; k < rows[j].fields.length; k++) if (rows[j].fields[k].id === id) return rows[j].fields[k];
+    }
+    return null;
+  }
+  var TREND = ['維持', '進步', '退步'];
+  function aspect(id, label, ph) {
+    return { label: label, fields: [
+      { id: id, type: 'single', label: '與上次比較', options: TREND },
+      { id: id + 'Note', type: 'text', label: '補充說明', w: '100%', ph: ph }
+    ] };
+  }
+  var isKeep = function (f) { return f.aaFreq === '維持不變'; }, isAdj = function (f) { return f.aaFreq === '調整'; };
+  function aaDetail(c) {
+    var on = function (f) { return has(f, 'aaNoteItems', '核定' + c); }, k = 'aa' + c.slice(2);
+    return { label: '核定' + c, showIf: on, fields: [
+      { id: k + 'Date', type: 'date', label: '訪談時間' },
+      { id: k + 'Who', type: 'text', label: '提出對象', w: '10em', ph: '如：案女' },
+      { id: k + 'Reason', type: 'textarea', label: '原因（依據 6 大項何項原則）', rows: 2, ph: '如：個案獨居且主要照顧者因病住院，符合第○項原則' },
+      { id: k + 'JK', type: 'text', label: '評估量表 J、K 項目（地方政府審視認有需要者填寫）', w: '100%', ph: '如：J2、K3' }
+    ] };
+  }
+  var aaSections = [
+    { id: 'aBasic', group: '壹', nav: '訪視資訊', title: '壹、訪視資訊', rows: [
+      { label: '訪視', fields: [pick('visitDate'), pick('withCM')] },
+      { label: '個案', fields: [pick('name'), pick('cms'), pick('identity')] },
+      sections[0].rows.filter(function (r) { return r.label === '在場人員'; })[0],
+      { label: '個管員', fields: [pick('cmName')] }
+    ] },
+    { id: 'aStatus', group: '貳', nav: '1 個案概況', title: '貳、個案摘述【1. 個案概況】', rows: [
+      aspect('aaPhys', '生理面向', '如：下肢較前次無力，室內需持助行器行走'),
+      aspect('aaPsych', '心理面向', '如：情緒平穩，記憶力退化情形無明顯變化'),
+      aspect('aaHome', '居家環境', '如：浴室已加裝扶手'),
+      aspect('aaHabit', '生活習慣', '如：白天多在客廳看電視，午睡時間變長'),
+      { label: '自理能力／前次問題追蹤', fields: [{ id: 'aaStatusNote', type: 'textarea', label: '補充（選填）', rows: 2, ph: '個案自理能力及前一份計畫照顧問題的追蹤情形' }] }
+    ] },
+    { id: 'aCarer', group: '貳', nav: '2 照顧者狀況', title: '貳、個案摘述【2. 照顧者照顧狀況】', rows: [
+      { label: '主要照顧者', fields: [
+        { id: 'aaCarerRel', type: 'choice', label: '主要照顧者', choices: ['外籍看護', '居服員'].concat(DATA.relations) },
+        { id: 'aaCarerLoad', type: 'single', label: '照顧負荷', options: ['可承受', '稍有負荷', '負荷沉重'] }
+      ] },
+      { label: '其他家屬', fields: [
+        { id: 'aaHelp', type: 'single', label: '可提供協助', options: ['有', '無'] },
+        { id: 'aaHelpNote', type: 'text', label: '協助內容', w: '100%', ph: '如：案子假日會回家協助陪同就醫', showIf: function (f) { return f.aaHelp === '有'; } }
+      ] },
+      { label: '補充', fields: [{ id: 'aaCarerNote', type: 'textarea', label: '補充（選填）', rows: 2, ph: '如：案女近期工作較忙，主訴照顧壓力增加' }] }
+    ] },
+    { id: 'aSvc', group: '貳', nav: '3 服務使用狀況', title: '貳、個案摘述【3. 服務使用狀況】', rows: [
+      { label: '服務頻率', fields: [{ id: 'aaFreq', type: 'single', label: '這次服務頻率', options: ['維持不變', '調整'] }] },
+      { label: '目前使用情形', showIf: isKeep, fields: [
+        { id: 'aaUseTime', type: 'text', label: '使用服務時間', w: '16em', ph: '如：每週一三五上午' },
+        { id: 'aaUseContent', type: 'textarea', label: '使用服務內容', rows: 2, ph: '如：協助個案沐浴洗頭及備餐' },
+        { id: 'aaWorker', type: 'single', label: '居服員服務狀況', options: ['服務狀況良好', '服務尚可', '需再溝通'] },
+        { id: 'aaWorkerNote', type: 'text', label: '居服員補充', w: '100%', ph: '如：居服員準時到班，與個案互動良好' },
+        { id: 'aaCoop', type: 'single', label: '個案配合照顧', options: ['配合度佳', '配合度尚可', '偶有抗拒'] }
+      ] },
+      { label: '調整後期待', showIf: isAdj, fields: [
+        { id: 'aaExpect', type: 'textarea', label: '討論後期待使用的服務項目及頻率', rows: 2, ph: '如：增加每週二四BA07協助沐浴及洗頭各1單位' },
+        { id: 'aaImprove', type: 'text', label: '期望改善事項', w: '100%', ph: '如：改善個案身體清潔狀況' }
+      ] },
+      { label: '補充', fields: [{ id: 'aaSvcNote', type: 'textarea', label: '補充（選填）', rows: 2 }] }
+    ] },
+    { id: 'problems', group: '參', nav: '照顧問題', title: '參、照顧問題（勾選並排序前 5 項）', custom: 'problems' },
+    { id: 'plan', group: '肆', nav: '服務規劃', title: '討論後服務使用內容（計畫執行規劃）', custom: 'plan' },
+    { id: 'goals', group: '肆', nav: '計畫目標', title: '肆、照顧計畫目標', custom: 'goals' },
+    { id: 'aNote', group: '備註', nav: '其他備註', title: '其他備註', rows: [
+      { label: '項目', fields: [{ id: 'aaNoteItems', type: 'multi', label: '需註記的項目（可複選）', options: ['核定AA08', '核定AA09', '超額自費需求'] }] },
+      aaDetail('AA08'), aaDetail('AA09'),
+      { label: '超額自費', showIf: function (f) { return has(f, 'aaNoteItems', '超額自費需求'); }, fields: [
+        { id: 'aaSelfPay', type: 'single', label: '個案是否同意自費使用', options: ['同意自費', '不同意自費', '考慮中'] }
+      ] },
+      { label: '其他', fields: [{ id: 'aaNoteFree', type: 'textarea', label: '其他註記（選填）', rows: 2 }] }
+    ] },
+    { id: 'output', group: '產出', nav: '產生計畫', title: '產生 AA01 計畫', custom: 'output' }
+  ];
+
+  return { sections: sections, aaSections: aaSections, has: has };
 })();

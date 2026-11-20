@@ -1,7 +1,7 @@
 /* 測試用虛構個案（姓名皆為虛構），情境分別對應範例 1（日照+交通+喘息）與範例 3（居服+交通+其他） */
 module.exports = {
   dayCare: {
-    visitDate: '2026-11-10', visitType: '初評', withCM: '否', name: '林阿嬌', gender: '女', age: '82', cms: '2', identity: '第三類',
+    visitDate: '2026-11-10', visitType: '初評', withCM: '否', name: '林阿嬌', gender: '女', birthYear: '33', cms: '2', identity: '第三類',
     address: '新北市泰山區', clientJoin: '是', cmName: '測試個管',
     attendees: [{ rel: '案女', name: '林美惠', mode: '在場' }, { rel: '案孫女', name: '張小安', mode: '在場' }],
     dx: ['失智症', '高血壓'], dx__note: { '失智症': '阿茲海默症(未提供診斷證明書及身障證明)' }, dxOther: '心臟肥大、心律不整、白內障術後',
@@ -15,7 +15,7 @@ module.exports = {
     marital: '喪偶', sons: '2', daughters: '4', childOrder: '女子女女女子', living: '與家人同住', livingWith: '案長子、案孫子、案孫女',
     members: [
       { rel: '案長子', marital: '離婚', co: '同住', health: '體況不佳，整日臥床', roles: ['同為長照服務使用對象'], note: '無法提供照顧' },
-      { rel: '案次女', marital: '已婚', co: '未同住', place: '附近', roles: ['主要照顧者', '主要聯絡人'], visit: '每天探視', note: '會提醒個案用藥' },
+      { rel: '案次女', marital: '已婚', co: '未同住', place: '附近', roles: ['主要照顧者', '主要聯絡人'], birthYear: '70', visit: '每天探視', note: '會提醒個案用藥' },
       { rel: '案長女', marital: '已婚', co: '未同住', place: '北投', work: '正職工作', visit: '休假探視' }
     ],
     burden: '低', support: '佳',

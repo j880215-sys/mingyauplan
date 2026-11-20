@@ -80,9 +80,9 @@ const OUT = process.env.SHOT_DIR || path.join(__dirname, 'shots');
   ok(await page.evaluate(() => APP._S.rec.f.visitType) === '複評', '複製為複評：訪視類型為「複評」');
   /* 訪視類型：四個選項；舊資料轉換 */
   await page.evaluate(() => APP._show('basic'));
-  ok(JSON.stringify(await page.locator('[aria-label="訪視類型"] .chip').allInnerTexts()) === JSON.stringify(['初評', '出備初評', '複評', 'AA01']), '訪視類型為「初評」「出備初評」「複評」「AA01」');
+  ok(JSON.stringify(await page.locator('[aria-label="訪視類型"] .chip').allInnerTexts()) === JSON.stringify(['初評', '出備初評', '複評']), '訪視類型為「初評」「出備初評」「複評」（AA01 已獨立）');
   const vt = await page.evaluate(() => [['複評'], ['AA01'], ['初評'], ['初評', 'AA01'], '複評/AA01', '出備初評'].map(v => APP._norm({ id: 'vt', f: { visitType: v }, changes: [] }).f.visitType));
-  ok(JSON.stringify(vt) === JSON.stringify(['複評', 'AA01', '初評', 'AA01', '複評', '出備初評']), '舊資料訪視類型轉換：' + vt.join('、'));
+  ok(JSON.stringify(vt) === JSON.stringify(['複評', '複評', '初評', '複評', '複評', '出備初評']), '舊資料訪視類型轉換：' + vt.join('、'));
   await page.screenshot({ path: path.join(OUT, 'review_output.png'), fullPage: false });
   /* 交通單位：按鈕與計畫文字用簡稱；舊個案、前次紀錄、設定的全名自動換成簡稱 */
   const mig = await page.evaluate(() => {

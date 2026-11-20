@@ -102,6 +102,8 @@ button { cursor: pointer; }
 .chips.compact .chip { min-height: 38px; padding: 5px 12px; border-radius: 10px; }
 .litem .chip { min-height: 40px; padding: 5px 12px; }
 .chip.hint { box-shadow: inset 0 0 0 1.5px #e3a24a; background: #fffaf1; }
+.chip.prev { background: #dcebfa; box-shadow: inset 0 0 0 1.5px #8fb8e2; color: var(--accent-d); font-weight: 600; }
+.prevnote { margin: 0 0 10px; padding: 8px 12px; border-radius: 10px; background: #eef5fc; color: var(--accent-d); font-size: 14px; }
 .affix { color: var(--label2); }
 .notes { display: flex; flex-wrap: wrap; gap: 8px 14px; margin-top: 8px; }
 .notes label { display: flex; align-items: center; gap: 6px; font-size: 14.5px; color: var(--label2); }
@@ -114,6 +116,8 @@ textarea.inp { resize: vertical; line-height: 1.75; min-height: 72px; }
 .inline > span { color: var(--label2); }
 select.inp { width: auto; padding-right: 30px; max-width: 100%; }
 .help { font-size: 13px; color: var(--label3); }
+.affix.or { margin: 0 4px 0 8px; color: var(--label3); }
+.inp.agein.auto { color: var(--accent-d); font-weight: 700; background: var(--accent-tt); }
 
 /* 疼痛量表 */
 .scale { display: grid; grid-template-columns: repeat(11, minmax(34px, 1fr)); gap: 0; max-width: 620px; border-radius: 12px; overflow: hidden; box-shadow: inset 0 0 0 1px var(--sep2); }
@@ -179,6 +183,31 @@ select.inp { width: auto; padding-right: 30px; max-width: 100%; }
 
 .sline { border-radius: 12px; background: var(--fill2); padding: 12px 14px; margin-bottom: 10px; box-shadow: inset 0 0 0 1px var(--sep); }
 .sline .shead { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+/* 週間排程表 */
+.sgridwrap { width: 100%; }
+.sgridscroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.sgrid { border-collapse: separate; border-spacing: 4px; width: 100%; min-width: 340px; table-layout: fixed; }
+.sgrid th { font-weight: 600; font-size: 14px; color: var(--accent-d); background: var(--accent-t); border-radius: 8px; padding: 6px 0; text-align: center; }
+.sgrid th.corner, .sgrid th.slot { width: 3.4em; background: #cfe3f6; }
+.sgrid td { padding: 0; }
+.gcell { width: 100%; min-height: 52px; border: 0; border-radius: 9px; background: var(--card-solid); box-shadow: inset 0 0 0 1px var(--sep2); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 4px 2px; color: var(--label3); cursor: pointer; transition: background-color .15s var(--ease), box-shadow .15s var(--ease); }
+.gcell:hover { box-shadow: inset 0 0 0 1.5px var(--accent); }
+.gcell .plus { font-size: 16px; opacity: .55; }
+.gcell.on { background: var(--accent); color: #fff; box-shadow: 0 2px 6px rgba(58, 116, 176, .28); }
+.gcell.on b { font-size: 15px; line-height: 1.2; }
+.gcell.on small { font-size: 12px; opacity: .92; font-variant-numeric: tabular-nums; }
+.gfoot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 6px; }
+.celldlg .fld { margin-bottom: 12px; }
+/* AA01 */
+.aares { margin-top: 14px; padding: 10px 12px; border-radius: 10px; background: var(--accent-tt); box-shadow: inset 0 0 0 1px var(--sep); }
+.aares .fl { font-weight: 600; color: var(--accent-d); margin-bottom: 6px; }
+.cnt.over { color: #c0392b; font-weight: 600; }
+.kindtag.aa { background: #e6f4ea; color: #1e7a3c; }
+.celldlg .tmwrap { position: relative; flex-wrap: wrap; gap: 8px; }
+.celldlg .tmhint { font-weight: 700; color: var(--accent-d); min-width: 4.5em; }
+.celldlg .tmhint.bad { color: #c0392b; font-weight: 600; }
+.celldlg .tmpicker { position: absolute; left: 0; bottom: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; border: 0; padding: 0; }
+@media (max-width: 420px) { .sgrid { border-spacing: 2px; min-width: 0; } .sgrid th.corner, .sgrid th.slot { width: 2.6em; font-size: 13px; } .gcell { min-height: 48px; } .gcell.on b { font-size: 13px; } .gcell.on small { font-size: 10.5px; } }
 .sline .scode { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--accent-d); }
 .sline .sname { font-weight: 600; }
 .sline .sbody { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: flex-end; }

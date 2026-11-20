@@ -22,7 +22,7 @@ const SECS = ['basic', 'phys', 'psych', 'family', 'home', 'routine', 'svc', 'pro
   page.on('console', m => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
   page.on('pageerror', e => errors.push('pageerror: ' + e.message));
   await page.goto(FILE); await H.enter(page);
-  ok(await page.locator('.mode >> text=撰寫計畫').count() > 0 && await page.locator('.mode >> text=計畫更新／異動').count() > 0, '首頁顯示兩個入口');
+  ok(await page.locator('.mode >> text=撰寫計畫').count() > 0 && await page.locator('.mode b', { hasText: /^AA01$/ }).count() > 0, '首頁顯示兩個入口（撰寫計畫、AA01）');
   await page.click('.mode >> text=撰寫計畫');
   await page.fill('input[aria-label="個案姓名"]', '測試阿嬤');
   await page.fill('input[aria-label="個管員姓名"]', '測試個管');

@@ -28,7 +28,10 @@
 py package.py               # 合併 src/ → dist/，並打包 zip（Windows 用 py；其他系統用 python3）
 node test/gen_test.js       # 文字產生器輸出
 node test/ui_test.js        # 點選、草稿、存取、各尺寸版面
-node test/flow_test.js      # 存檔兩個 PDF 與年度月份資料夾、PDF／舊 html 匯入、異動、設定、複評
+node test/flow_test.js      # 存檔兩個 PDF 與年度月份資料夾、PDF／舊 html 匯入、設定、複評
+node test/aa01_test.js      # AA01：建立、各分頁文字、三段產出、PDF 存檔與匯入
+node test/grid_test.js      # 週間排程表
+node test/age_test.js       # 出生年次換算年齡
 node test/new_test.js       # 額度帶入、目標換寫法、跳到未填欄位、身障選項、複評比對、交通單位簡稱轉換
 ```
 瀏覽器測試需要 Playwright：`npm install`（依 package.json）後執行 `npx playwright install chromium`。`node_modules/` 只供本機測試，不會打包進成品。

@@ -139,6 +139,23 @@ var UI = (function () {
     if (!def.prefix && !def.suffix) return inp;
     return h('div', { class: 'inwrap' }, [def.prefix ? h('span', { class: 'affix', text: def.prefix }) : null, inp, def.suffix ? h('span', { class: 'affix', text: def.suffix }) : null]);
   }
+  /* 出生年次／年齡：兩格擇一填。填年次 → 年齡格自動帶出換算結果（以訪視日期為準）；直接填年齡 → 清掉年次 */
+  function byearInput(def, obj, ctx) {
+    function ref() { return (obj.visitDate) || (refDate.fn && refDate.fn()) || ''; }
+    var by, ag;
+    function sync() {
+      if (nz(obj.birthYear)) { obj.age = NAR.ageOf(obj, ref()); ag.value = obj.age; ag.classList.add('auto'); }
+      else ag.classList.remove('auto');
+    }
+    by = h('input', { class: 'inp', type: 'text', inputmode: 'numeric', value: nz(obj.birthYear), placeholder: '如 35', style: 'width:4.5em', 'aria-label': '出生年次', autocomplete: 'off',
+      oninput: function () { obj.birthYear = by.value.replace(/[^\d]/g, ''); if (!obj.birthYear) { obj.age = ''; ag.value = ''; } sync(); ctx.changed(); } });
+    ag = h('input', { class: 'inp agein', type: 'text', inputmode: 'numeric', value: nz(obj.age), placeholder: '歲', style: 'width:4em', 'aria-label': '年齡', autocomplete: 'off',
+      oninput: function () { obj.age = ag.value.replace(/[^\d]/g, ''); obj.birthYear = ''; by.value = ''; sync(); ctx.changed(); } });
+    sync();
+    return h('div', { class: 'inwrap' }, [h('span', { class: 'affix', text: '民國' }), by, h('span', { class: 'affix', text: '年次' }),
+      h('span', { class: 'affix or', text: '或' }), ag, h('span', { class: 'affix', text: '歲' })]);
+  }
+  var refDate = { fn: null };   /* app 設定：回傳目前個案的訪視日期 */
   function dateInput(def, obj, ctx) {
     var inp = h('input', { class: 'inp', type: 'date', value: nz(obj[def.id]), style: 'width:11.5em', 'aria-label': def.label || def.id, onchange: function () { obj[def.id] = inp.value; ctx.changed(); }, oninput: function () { obj[def.id] = inp.value; ctx.changed(); } });
     var roc = h('span', { class: 'help' });
@@ -394,6 +411,7 @@ var UI = (function () {
     switch (def.type) {
       case 'text': case 'number': return textInput(def, obj, ctx);
       case 'date': return dateInput(def, obj, ctx);
+      case 'byear': return byearInput(def, obj, ctx);
       case 'textarea': return textareaInput(def, obj, ctx);
       case 'single': return singleInput(def, obj, ctx);
       case 'multi': return multiInput(def, obj, ctx);
@@ -426,5 +444,5 @@ var UI = (function () {
   }
 
   return { h: h, clear: clear, uid: uid, store: store, toast: toast, copyText: copyText, download: download, pickFile: pickFile, dialog: dialog, confirmBox: confirmBox,
-    field: field, control: control, deliverFiles: deliverFiles, canShareFiles: canShareFiles, parseCaseFile: parseCaseFile, isIOS: isIOS, textInput: textInput, textareaInput: textareaInput, singleInput: singleInput, multiInput: multiInput, hasValue: hasValue, opts: opts, autoGrow: autoGrow, bodySvg: bodySvg, painSvg: painSvg, MUSCLE_LEGEND: MUSCLE_LEGEND };
+    field: field, control: control, deliverFiles: deliverFiles, canShareFiles: canShareFiles, parseCaseFile: parseCaseFile, isIOS: isIOS, textInput: textInput, textareaInput: textareaInput, singleInput: singleInput, multiInput: multiInput, hasValue: hasValue, opts: opts, autoGrow: autoGrow, bodySvg: bodySvg, painSvg: painSvg, MUSCLE_LEGEND: MUSCLE_LEGEND, refDate: refDate };
 })();

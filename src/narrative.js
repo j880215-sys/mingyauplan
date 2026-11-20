@@ -40,6 +40,17 @@ var NAR = (function () {
   }
   function p2(n) { return (n < 10 ? '0' : '') + n; }
   function rocLong(s) { var r = roc(s); return r ? r.y + '年' + r.m + '月' + r.d + '日' : ''; }
+  /* 出生年次 → 年齡：以訪視日期（沒有則今天）的民國年減年次；也接受直接填西元年 */
+  function ageOf(o, refDate) {
+    var by = parseInt(nz(o && o.birthYear), 10);
+    if (by > 0) {
+      var r = roc(refDate), y = r ? r.y : new Date().getFullYear() - 1911;
+      if (by > 1900) by -= 1911;
+      var a = y - by;
+      return a >= 0 && a < 130 ? String(a) : '';
+    }
+    return nz(o && o.age);
+  }
   function rocDot(s) { var r = roc(s); return r ? r.y + '.' + p2(r.m) + '.' + p2(r.d) : ''; }
   /* 額度區間：自訪視月份起算 12 個月，如 115.11-116.10 */
   function quotaPeriod(s) {
@@ -95,7 +106,8 @@ var NAR = (function () {
       return lead + (escort ? '由' + escort + '陪同' : '') + '至' + dest;
     }
     var how;
-    if (escort) how = '由' + escort + others.map(function (v) { return v === '開車接送' ? '開車接送' : '陪同個案' + v; }).join('或');
+    if (escort === '居服員') how = others.map(function (v) { return v === '開車接送' ? '由家人開車接送、居服員陪同' : '由居服員陪同個案' + v; }).join('或');
+    else if (escort) how = '由' + escort + others.map(function (v) { return v === '開車接送' ? '開車接送' : '陪同個案' + v; }).join('或');
     else how = others.map(function (v) { return v === '開車接送' ? '由家人開車接送' : v; }).join('或');
     if (self) return (freq || '平時') + '多自行前往' + dest + '，有需要時' + how;
     return lead + how + '至' + dest;
@@ -396,7 +408,7 @@ var NAR = (function () {
       var rw = main.map(function (r, i) { return i > 0 ? r.replace(/^主要/, '') : r; });
       parts.push('為個案' + joinAnd(rw));
     }
-    if (nz(m.age) && roles.indexOf('主要照顧者') >= 0) parts.push(nz(m.age) + '歲');
+    var ma = ageOf(m, f && f.visitDate); if (ma && roles.indexOf('主要照顧者') >= 0) parts.push(ma + '歲');
     var wk = { '正職工作': '平時有正職工作', '兼職': '有兼職工作', '退休': '已退休', '家管': '為家管', '無業': '目前無業', '就學': '仍在就學中' }[m.work]; if (wk) parts.push(wk);
     if (nz(m.health)) parts.push('本身' + stripEnd(m.health));
     if (roles.indexOf('同為長照服務使用對象') >= 0) parts.push('同為長照服務使用對象');
@@ -525,10 +537,43 @@ var NAR = (function () {
   }
 
   /* ---------- 服務行（肆、服務規劃） ---------- */
-  function lineN(l) { return l.mode === 'week' ? (+l.n || 0) : l.mode === 'days' ? arr(l.days).length : l.mode === 'daily' ? 7 : 0; }
+  /* 週間排程表：l.grid = { '1am': {u:'3', t:'09:00'}, ... }，星期 1–7 × 上午／中午／下午 */
+  var SLOTS = [['am', '上午'], ['noon', '中午'], ['pm', '下午']];
+  function gridCell(l, d, s) { var c = (l.grid || {})[d + s]; return c && parseFloat(c.u) > 0 ? c : null; }
+  function gridDays(l) {
+    var out = [];
+    for (var d = 1; d <= 7; d++) {
+      var sl = [];
+      SLOTS.forEach(function (s) { var c = gridCell(l, d, s[0]); if (c) sl.push({ lab: s[1], u: String(parseFloat(c.u)), t: nz(c.t) }); });
+      if (sl.length) out.push({ d: d, slots: sl, total: sl.reduce(function (a, x) { return a + parseFloat(x.u); }, 0) });
+    }
+    return out;
+  }
+  function timeTxt(t) { var m = /^(\d{1,2}):(\d{2})/.exec(nz(t)); return m ? (+m[1]) + ':' + m[2] : nz(t); }
+  function gridFreqText(l) {
+    var groups = [], idx = {};
+    gridDays(l).forEach(function (g) {
+      var mixed = g.slots.some(function (x) { return x.u !== g.slots[0].u; });
+      var desc = g.slots.map(function (x) { return x.lab + timeTxt(x.t) + (mixed ? (x.t ? ' ' : '') + x.u + '單位' : ''); }).join('、');
+      var key = desc + (mixed ? '' : '|' + g.slots[0].u);
+      if (!(key in idx)) { idx[key] = groups.length; groups.push({ days: [], desc: desc, u: mixed ? '' : g.slots[0].u, multi: g.slots.length > 1 }); }
+      groups[idx[key]].days.push(g.d);
+    });
+    return groups.map(function (gr, i) {
+      var dp = gr.days.length === 7 ? '每日' : (i === 0 ? '每週' : '') + daysStr(gr.days);
+      return dp + gr.desc + (gr.u ? ((gr.days.length > 1 || gr.multi) ? '各' : /\d$/.test(gr.desc) ? ' ' : '') + gr.u + '單位' : '');
+    }).join('；');
+  }
+  function lineN(l) { return l.mode === 'week' ? (+l.n || 0) : l.mode === 'days' ? arr(l.days).length : l.mode === 'daily' ? 7 : l.mode === 'grid' ? gridDays(l).length : 0; }
   function unitsAuto(l, st) {
     var each = parseFloat(l.each) || 1, n = lineN(l);
     if (l.mode === 'spare') return 1;
+    if (l.mode === 'grid') {
+      if (!n) return '';
+      var gf = (st.weekFactor || {})[n]; if (!gf) return '';
+      var tot = gridDays(l).reduce(function (a, g) { return a + g.total; }, 0);
+      return Math.round(tot * gf / n);
+    }
     if (!n) return '';
     var fac = (st.weekFactor || {})[n]; if (!fac) return '';
     return Math.round(fac * each * 100) / 100;
@@ -544,6 +589,7 @@ var NAR = (function () {
     if (l.mode === 'week' && +l.n) return (+l.n === 7 ? '每日' : '每週' + CNT[+l.n] + '天') + '各' + each + '單位';
     if (l.mode === 'days' && arr(l.days).length) return '每週' + daysStr(l.days) + '各' + each + '單位';
     if (l.mode === 'daily') return '每日各' + each + '單位';
+    if (l.mode === 'grid') return gridFreqText(l);
     return '';
   }
   function careLineText(l, st) {
@@ -577,7 +623,7 @@ var NAR = (function () {
     else out.push(flag || '暫無需求。');
     return out;
   }
-  function plan(f, st) {
+  function plan(f, st, aa) {
     var out = [];
     out.push('於' + visitPhrase(f) + '，與' + (participants(f) || '個案') + '討論照顧計畫，照顧計畫如下：');
     out.push('照顧計畫');
@@ -597,6 +643,7 @@ var NAR = (function () {
     var res = planLines(f, 'pRespite');
     out.push('4.喘息服務' + (res.length && nz(f.pRespitePeriod) ? '(喘息額度區間' + nz(f.pRespitePeriod) + ')' : ''));
     if (res.length) res.forEach(function (l) { out.push(yearLineText(l)); }); else out.push('暫無需求。');
+    if (aa) { var rn = aaRespiteNote(f); if (rn) out.push(rn); }
     var no = 5, sh = planLines(f, 'pShort');
     if (sh.length) {
       out.push((no++) + '.短照服務' + (nz(f.pShortPeriod) ? '(短照額度區間' + nz(f.pShortPeriod) + ')' : ''));
@@ -606,6 +653,7 @@ var NAR = (function () {
     if (oth.length) { out.push((no++) + '.其他'); oth.forEach(function (l) { out.push(careLineText(l, st)); }); }
     if (nz(f.planNote)) out.push(nz(f.planNote));
     out.push('個管員：' + nz(f.cmName));
+    if (aa) out.push(AA_SEP);
     return out.join('\n');
   }
 
@@ -897,6 +945,124 @@ var NAR = (function () {
   }
 
   /* ============================================================
+     AA01：舊計畫不刪，新內容疊在 CMS 欄位最上方，兩筆之間以 ----- 區隔
+     ============================================================ */
+  var AA_SEP = '-----';
+  var AA_ASPECTS = [['aaPhys', '生理'], ['aaPsych', '心理'], ['aaHome', '居家環境'], ['aaHabit', '生活習慣']];
+  var AA_TREND = { '維持': '無明顯變化', '進步': '較前次進步', '退步': '較前次退化' };
+  var AA_EVAL = ['已達成', '部分達成', '未達成', '持續追蹤'];
+  /* 1、個案概況：有變化或有補充的面向逐項寫，「維持」且沒補充的合併成一句 */
+  function aaStatus(f) {
+    var same = [], parts = [];
+    AA_ASPECTS.forEach(function (a) {
+      var t = AA_TREND[f[a[0]]] ? f[a[0]] : '', n = stripEnd(f[a[0] + 'Note']);
+      if (!t && !n) return;
+      if (t === '維持' && !n) { same.push(a[1]); return; }
+      parts.push(a[1] + '方面' + (t ? AA_TREND[t] : '') + (n ? (t ? '，' : '') + n : ''));
+    });
+    if (same.length) parts.push(joinAnd(same) + '方面' + AA_TREND['維持']);
+    var out = parts.length ? '與上次訪視評估相比，' + parts.join('；') + '。' : '';
+    var x = stripEnd(f.aaStatusNote);
+    return out + (x ? x + '。' : '');
+  }
+  function aaCarer(f) {
+    var p = [];
+    if (nz(f.aaCarerRel)) p.push('主要照顧者為' + nz(f.aaCarerRel));
+    var ld = { '可承受': '主訴可承受照顧負荷', '稍有負荷': '主訴照顧上稍有負荷', '負荷沉重': '主訴照顧負荷沉重' }[f.aaCarerLoad]; if (ld) p.push(ld);
+    if (f.aaHelp === '有') p.push(nz(f.aaHelpNote) || '其他家屬可提供協助');
+    else if (f.aaHelp === '無') p.push('其他家屬無法提供協助');
+    if (nz(f.aaCarerNote)) p.push(f.aaCarerNote);
+    return sent(p);
+  }
+  function aaSvc(f) {
+    var p = [];
+    if (f.aaFreq === '維持不變') {
+      p.push('個案服務頻率無調整');
+      if (nz(f.aaUseTime) || nz(f.aaUseContent)) p.push('目前' + stripEnd(f.aaUseTime) + '使用服務' + (nz(f.aaUseContent) ? '，服務內容為' + stripEnd(f.aaUseContent) : ''));
+      var w = { '服務狀況良好': '居服員服務狀況良好', '服務尚可': '居服員服務狀況尚可', '需再溝通': '居服員服務狀況需再溝通改善' }[f.aaWorker]; if (w) p.push(w);
+      if (nz(f.aaWorkerNote)) p.push(f.aaWorkerNote);
+      var c = { '配合度佳': '個案配合照顧狀況良好', '配合度尚可': '個案配合照顧狀況尚可', '偶有抗拒': '個案偶有抗拒照顧情形' }[f.aaCoop]; if (c) p.push(c);
+    } else if (f.aaFreq === '調整') {
+      p.push('經討論後個案服務頻率需調整');
+      if (nz(f.aaExpect)) p.push('期待' + stripEnd(f.aaExpect));
+      if (nz(f.aaImprove)) p.push('期望' + stripEnd(f.aaImprove));
+    }
+    if (nz(f.aaSvcNote)) p.push(f.aaSvcNote);
+    return sent(p);
+  }
+  /* 「依服務規劃帶入」：把照顧服務各項的頻率寫成一句，供「使用服務內容」參考 */
+  function aaUseFromPlan(f) {
+    return planLines(f, 'pCare').map(function (l) { var fq = freqText(l); return nz(l.code) + nz(l.name) + (fq ? '(' + fq + ')' : ''); }).join('、');
+  }
+  function aaProblems(f) {
+    var out = problems(f);
+    if (nz(f.aaProbFree)) out.push(nz(f.aaProbFree));
+    return out;
+  }
+  function aaGoalLines(f) {
+    var out = [], ev = [];
+    [['aaEvShort', '短期目標'], ['aaEvMid', '中期目標'], ['aaEvLong', '長期目標']].forEach(function (a) { if (AA_EVAL.indexOf(f[a[0]]) >= 0) ev.push(a[1] + f[a[0]]); });
+    if (ev.length || nz(f.aaEvNote)) out.push('前次目標評值：' + clause([ev.join('，'), f.aaEvNote]) + '。');
+    var g = goals(f);
+    out.push('1、短期目標：' + (g.short ? stripEnd(g.short) + '(1個月)' : ''));
+    out.push('2、中期目標：' + (g.mid ? stripEnd(g.mid) + '(3個月)' : ''));
+    out.push('3、長期目標：' + (g.long ? stripEnd(g.long) + '(6個月)' : ''));
+    if (nz(f.aaGoalFree)) out.push(nz(f.aaGoalFree));
+    return out;
+  }
+  function aaGoalText(f, st) {
+    var g = st.headGap, out = [];
+    out.push(s1(f, st));
+    out.push('貳、' + g + '個案摘述：');
+    out.push('1、 個案概況：' + aaStatus(f));
+    out.push('2、 照顧者照顧狀況：' + aaCarer(f));
+    out.push('3、 服務使用狀況：' + aaSvc(f));
+    out.push('參、' + g + '照顧問題：');
+    aaProblems(f).forEach(function (x) { out.push(x); });
+    out.push('肆、' + g + '照顧計畫目標：');
+    aaGoalLines(f).forEach(function (x) { out.push(x); });
+    out.push('個管員：' + nz(f.cmName));
+    out.push(AA_SEP);
+    return out.join('\n');
+  }
+  function aaPlan(f, st) { return plan(f, st, true); }
+  /* 喘息額度註記：本案喘息額度自114年10月至115年09月。（依喘息額度區間） */
+  function aaRespiteNote(f) {
+    if (!planLines(f, 'pRespite').length) return '';
+    var m = /^(\d{2,3})\.(\d{1,2})\s*[-~～至]\s*(\d{2,3})\.(\d{1,2})$/.exec(nz(f.pRespitePeriod));
+    return m ? '本案喘息額度自' + m[1] + '年' + p2(+m[2]) + '月至' + m[3] + '年' + p2(+m[4]) + '月。' : '';
+  }
+  function aaNote(f) {
+    var out = [], items = arr(f.aaNoteItems);
+    ['AA08', 'AA09'].forEach(function (c) {
+      if (items.indexOf('核定' + c) < 0) return;
+      var k = 'aa' + c.slice(2);
+      var p = ['核定' + c + '：於' + (rocLong(f[k + 'Date']) || '○年○月○日') + '訪談' + (nz(f[k + 'Who']) ? '，由' + stripEnd(f[k + 'Who']) + '提出' : '')];
+      if (nz(f[k + 'Reason'])) p.push('原因：' + stripEnd(f[k + 'Reason']));
+      if (nz(f[k + 'JK'])) p.push('符合評估量表' + stripEnd(f[k + 'JK']) + '項目');
+      out.push(clause(p) + '。');
+    });
+    if (items.indexOf('超額自費需求') >= 0)
+      out.push('個案有超額服務需求，若有留用額度可與個管溝通，' + ({ '同意自費': '個案同意自費使用', '不同意自費': '個案不同意自費使用', '考慮中': '個案尚在考慮是否自費使用' }[f.aaSelfPay] || '並與案家討論是否自費使用') + '。');
+    if (nz(f.aaNoteFree)) out.push(stripEnd(f.aaNoteFree) + '。');
+    return out.map(function (x, i) { return (out.length > 1 ? (i + 1) + '、' : '') + x; }).join('\n');
+  }
+  function aaChecks(f) {
+    var w = [];
+    if (!nz(f.name)) w.push({ msg: '尚未填寫個案姓名', sec: 'aBasic', fid: 'name' });
+    if (!nz(f.visitDate)) w.push({ msg: '尚未填寫訪視日期', sec: 'aBasic', fid: 'visitDate' });
+    if (!nz(f.cmName)) w.push({ msg: '尚未填寫個管員姓名', sec: 'aBasic', fid: 'cmName' });
+    if (!aaStatus(f)) w.push({ msg: '個案概況尚未填寫', sec: 'aStatus', fid: 'aaPhys' });
+    if (!nz(f.aaFreq)) w.push({ msg: '服務使用狀況：尚未選擇服務頻率維持或調整', sec: 'aSvc', fid: 'aaFreq' });
+    var n = arr(f.problems).length;
+    if (!n) w.push({ msg: '尚未勾選照顧問題', sec: 'problems', fid: 'probgrid' });
+    else if (n > 5) w.push({ msg: '照顧問題勾了 ' + n + ' 項，AA01 只需列前 5 項', sec: 'problems', fid: 'probgrid' });
+    arr(f.problems).forEach(function (p) { if (!stripEnd(p.desc)) w.push({ msg: '照顧問題「' + p.name + '」尚未寫改善情形', sec: 'problems', fid: 'prob-' + p.no }); });
+    if (!goals(f).short) w.push({ msg: '照顧計畫目標尚未產生（請先選服務規劃）', sec: 'goals', fid: '' });
+    return w;
+  }
+
+  /* ============================================================
      計畫更新／異動（AA01 計畫更新與計畫異動寫法相同）：
      疊加在 CMS 舊計畫上方的兩段文字。舊計畫只在 CMS，程式看不到，
      所以只寫個管師標記為「新增／調整／維持／取消」的服務。
@@ -1069,13 +1235,15 @@ var NAR = (function () {
   var DEFAULT_ST = { weekFactor: { 1: 5, 2: 9, 3: 14, 4: 18, 5: 23, 6: 27, 7: 31 } };
 
   return {
-    nz: nz, arr: arr, vals: vals, joinAnd: joinAnd, rocLong: rocLong, rocDot: rocDot, quotaPeriod: quotaPeriod,
+    nz: nz, arr: arr, vals: vals, joinAnd: joinAnd, rocLong: rocLong, rocDot: rocDot, ageOf: ageOf, quotaPeriod: quotaPeriod,
     s1: s1, phys: phys, psych: psych, family: family, home: home, routine: routine, svc: svc,
     problems: problems, problemDefault: problemDefault, suggestProblems: suggestProblems, suggestCause: suggestCause,
     goals: goals, goalsAuto: goalsAuto, goalText: goalText, plan: plan, careLineText: careLineText, proLineText: proLineText,
     aidLineText: aidLineText, yearLineText: yearLineText, unitsAuto: unitsAuto, unitsOf: unitsOf, freqText: freqText,
     summary: summary, checks: checks, bmiOf: bmiOf, bmiCat: bmiCat, participants: participants,
-    defaultDiscuss: defaultDiscuss, quotaFill: quotaFill, isReview: isReview, planDiff: planDiff, MUSCLE: MUSCLE, MUSCLE_OLD: MUSCLE_OLD,
+    defaultDiscuss: defaultDiscuss, quotaFill: quotaFill, isReview: isReview, planDiff: planDiff, MUSCLE: MUSCLE, MUSCLE_OLD: MUSCLE_OLD, SLOTS: SLOTS, gridDays: gridDays,
+    aaStatus: aaStatus, aaCarer: aaCarer, aaSvc: aaSvc, aaProblems: aaProblems, aaGoalLines: aaGoalLines, aaGoalText: aaGoalText, aaPlan: aaPlan, aaNote: aaNote, aaChecks: aaChecks,
+    aaRespiteNote: aaRespiteNote, aaUseFromPlan: aaUseFromPlan, AA_EVAL: AA_EVAL, AA_SEP: AA_SEP,
     updateTexts: updateTexts, updateChecks: updateChecks, upLineText: upLineText, upAct: upAct, UP_ACTS: UP_ACTS
   };
 })();
