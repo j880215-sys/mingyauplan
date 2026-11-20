@@ -8,3 +8,4 @@ Copyright (c) 2026 明曜居家長照機構（新北市私立明曜居家長照�
 本程式內含之第三方元件依其原授權條款使用：
 - html2canvas 1.4.1（MIT License, Copyright (c) Niklas von Hertzen）
 - 標題字形取自 Noto Serif TC（SIL Open Font License 1.1）
+- Firebase JavaScript SDK 13.2.0（Apache License 2.0, Copyright Google LLC）

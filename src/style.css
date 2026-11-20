@@ -198,6 +198,15 @@ select.inp { width: auto; padding-right: 30px; max-width: 100%; }
 .gcell.on small { font-size: 12px; opacity: .92; font-variant-numeric: tabular-nums; }
 .gfoot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 6px; }
 .celldlg .fld { margin-bottom: 12px; }
+/* 雲端：載入畫面、同步狀態 */
+.loadwrap { min-height: 70vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; color: var(--label2); }
+.loadspin { width: 34px; height: 34px; border-radius: 50%; border: 3px solid var(--accent-t); border-top-color: var(--accent); animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.syncbadge { display: inline-block; margin-left: 10px; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; background: #e6f4ea; color: #1e7a3c; vertical-align: 1px; }
+.syncbadge::before { content: "☁ "; }
+.syncbadge.busy { background: var(--accent-t); color: var(--accent-d); }
+.syncbadge.off { background: #fff3e0; color: #a85a00; }
+.lg-old[hidden] { display: none; }
 /* AA01 */
 .aares { margin-top: 14px; padding: 10px 12px; border-radius: 10px; background: var(--accent-tt); box-shadow: inset 0 0 0 1px var(--sep); }
 .aares .fl { font-weight: 600; color: var(--accent-d); margin-bottom: 6px; }

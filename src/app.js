@@ -8,6 +8,9 @@ var APP = (function () {
   var K = { st: 'cpgen.settings', idx: 'cpgen.index', rec: 'cpgen.case.' };
   var LEGACY = { st: 'cpgen.settings', idx: 'cpgen.index', rec: 'cpgen.case.' };
   function useAccount(u) { K = { st: 'cpgen.' + u + '.settings', idx: 'cpgen.' + u + '.index', rec: 'cpgen.' + u + '.case.' }; }
+  /* 雲端模式：登入後 store 換成 CLOUD.store（記憶體明文＋加密上傳）；個案清單由雲端資料重建 */
+  var CLOUDON = false;
+  function buildIdx() { return CLOUD.ids().map(function (id) { var r = CLOUD.recOf(id); return r && r.f ? metaOf(r) : null; }).filter(Boolean); }
   /* 加入登入功能前，這台裝置上的個案沒有帳號：第一個登入的帳號（且自己還沒有個案）接收這些資料 */
   function migrateLegacy() {
     var res = { cases: 0, settings: false };
@@ -458,7 +461,7 @@ var APP = (function () {
           upd || aa ? null : h('button', { type: 'button', class: 'btn sm', text: '複製為複評', title: '帶入這次的內容，建立一筆新的複評紀錄', onclick: function () { var r = store.get(K.rec + m.id); if (r) cloneForReview(normalize(r)); } }),
           h('button', { type: 'button', class: 'btn sm', text: '存檔', onclick: function () { var r = store.get(K.rec + m.id); if (r) saveCase(normalize(r)); } }),
           h('button', { type: 'button', class: 'btn sm danger', text: '刪除', onclick: function () {
-            UI.confirmBox('刪除個案', '確定刪除「' + m.name + '」在這台裝置上的資料嗎？刪除後無法復原。', '刪除', function () { store.del(K.rec + m.id); S.idx = S.idx.filter(function (x) { return x.id !== m.id; }); store.set(K.idx, S.idx); renderHome(); }, true);
+            UI.confirmBox('刪除個案', CLOUDON ? '確定刪除「' + m.name + '」嗎？雲端與你所有裝置上的這筆資料都會刪除，無法復原。' : '確定刪除「' + m.name + '」在這台裝置上的資料嗎？刪除後無法復原。', '刪除', function () { store.del(K.rec + m.id); S.idx = S.idx.filter(function (x) { return x.id !== m.id; }); store.set(K.idx, S.idx); renderHome(); }, true);
           } })
         ])
       ]));
@@ -471,14 +474,16 @@ var APP = (function () {
         h('button', { type: 'button', class: 'mode', onclick: function () { openRec(newAA()); } }, [h('b', { text: 'AA01' }), h('span', { text: '舊計畫保留、新內容疊在 CMS 最上方。也可以在下方個案清單按「建立AA01」帶入舊資料' })])
       ]),
       h('div', { class: 'homeacts' }, [
-        S.sess ? h('span', { class: 'whoami' }, ['目前登入', h('b', { text: S.sess.name }), '（' + S.sess.u + '）']) : null,
+        S.sess ? h('span', { class: 'whoami' }, ['目前登入', h('b', { text: S.sess.name }), '（' + S.sess.u + '）', CLOUDON ? syncBadge() : null]) : null,
         h('button', { type: 'button', class: 'btn', text: '匯入存檔', title: '打開之前存的 PDF（訪視評估表、計畫內容、計畫更新異動）或舊版 html 檔', onclick: function () { UI.pickFile(importRec); } }),
         h('button', { type: 'button', class: 'btn', text: '設定', onclick: openSettings }),
         h('button', { type: 'button', class: 'btn', text: '使用說明', onclick: openHelp }),
         S.sess ? h('button', { type: 'button', class: 'btn', text: '登出', onclick: askLogout }) : null
       ]),
       list,
-      h('div', { class: 'privacy' }, [h('b', { text: '個資提醒　' }), '本程式完全離線，不會把任何資料傳到網路。個案資料只存在這台裝置的瀏覽器裡；與他人共用裝置時，請在完成後按「存檔」並刪除清單中的資料。',
+      h('div', { class: 'privacy' }, [h('b', { text: '個資提醒　' }), CLOUDON
+        ? '個案資料在這台裝置上加密後，才同步到雲端（Google Firebase 台灣機房），只有用你的帳號密碼才能解開，其他同仁與雲端業者都看不到內容。沒有網路時照常使用，連線後自動同步。與他人共用裝置時，用完請按「登出」。'
+        : '本程式完全離線，不會把任何資料傳到網路。個案資料只存在這台裝置的瀏覽器裡；與他人共用裝置時，請在完成後按「存檔」並刪除清單中的資料。',
         !store.ok ? h('div', { style: 'margin-top:6px;font-weight:600', text: '目前這個瀏覽器無法自動儲存，關閉前請務必按「存檔」保存。' }) : null]),
       h('p', { class: 'copyright', text: COPYRIGHT })
     ]));
@@ -487,6 +492,13 @@ var APP = (function () {
   /* 登出：先存好目前編輯的內容；個案留在這台裝置，同一帳號再登入就看得到 */
   function askLogout() {
     if (S.rec) saveNow();
+    if (CLOUDON) {
+      UI.confirmBox('登出', '要登出「' + S.sess.name + '」嗎？個案已加密同步到雲端，下次在任何裝置用同一個帳號登入就會看到。' + (CLOUD.pending() ? '（目前有修改尚未上傳，連上網路後會自動完成）' : ''), '登出', function () {
+        AUTH.logout();
+        Promise.race([CLOUD.logout(), new Promise(function (r) { setTimeout(r, 4000); })]).then(function () { location.reload(); });
+      });
+      return;
+    }
     UI.confirmBox('登出', '要登出「' + S.sess.name + '」嗎？目前內容已自動儲存，這台裝置上的個案會保留，下次用同一個帳號登入就會看到。', '登出', function () { AUTH.logout(); location.reload(); });
   }
   function cloneForReview(rec) {
@@ -515,7 +527,7 @@ var APP = (function () {
   function topBar(app) {
     E.info = h('div', { class: 'caseinfo' });
     E.save = h('div', { class: 'savestate' });
-    function goHome() { saveNow(); S.idx = store.get(K.idx) || S.idx; renderHome(); }
+    function goHome() { saveNow(); S.idx = CLOUDON ? buildIdx() : (store.get(K.idx) || S.idx); renderHome(); }
     app.appendChild(h('header', { class: 'top' }, [
       h('div', { class: 'brand home', role: 'button', tabindex: '0', title: '返回首頁', onclick: goHome, onkeydown: function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); goHome(); } } },
         [h('span', { class: 'mark', 'aria-hidden': 'true' }), h('span', { class: 'bt' }, [h('b', { text: '照顧計畫產生器' }), h('small', { text: ORG })])]), E.info, E.save,
@@ -1319,7 +1331,7 @@ var APP = (function () {
       h('button', { type: 'button', class: 'btn sm', text: '匯出設定檔（給同事用）', onclick: function () { UI.download('照顧計畫產生器_設定.json', JSON.stringify({ app: 'care-plan-generator-settings', st: S.st }, null, 1)); } }),
       h('button', { type: 'button', class: 'btn sm', text: '匯入設定檔', onclick: function () { UI.pickFile(function (o) { if (o && o.app === 'care-plan-generator-settings' && o.st) { S.st = migrateSettings(o.st); saveSettings(); dlg.close(); UI.toast('已套用設定'); rerender(); } else UI.toast('這不是設定檔'); }); } }),
       h('button', { type: 'button', class: 'btn sm danger', text: '清除這個帳號在這台裝置上的全部個案', onclick: function () {
-        UI.confirmBox('清除全部個案', '這會刪除這個帳號在這台裝置上的所有個案資料，無法復原。需要保留的請先存檔。', '全部清除', function () { S.idx.forEach(function (m) { store.del(K.rec + m.id); }); S.idx = []; store.set(K.idx, S.idx); dlg.close(); renderHome(); }, true);
+        UI.confirmBox('清除全部個案', CLOUDON ? '這會刪除這個帳號在雲端與所有裝置上的全部個案資料，無法復原。需要保留的請先存檔。' : '這會刪除這個帳號在這台裝置上的所有個案資料，無法復原。需要保留的請先存檔。', '全部清除', function () { S.idx.forEach(function (m) { store.del(K.rec + m.id); }); S.idx = []; store.set(K.idx, S.idx); dlg.close(); renderHome(); }, true);
       } })]));
     var dlg = UI.dialog('設定', body, [{ label: '取消' }, { label: '儲存設定', pri: true, on: function () {
       st.cmName = nz(tmp.cmName); st.address = nz(tmp.address); st.transAmount = nz(tmp.transAmount) || '1840';
@@ -1352,7 +1364,11 @@ var APP = (function () {
     sec('存檔與資料夾', ['電腦（Chrome 或 Edge）：第一次按「存檔」時選一次存檔資料夾，之後會自動依訪視日期存進「115年度／11月」這類子資料夾。',
       'iPad（Safari）：按「存檔」會跳出分享選單，請選「儲存到檔案」並自行選資料夾；Safari 無法自動分資料夾。',
       '存出的 PDF 可直接列印或傳給督導；PDF 內夾帶個案資料，在任何一台裝置用首頁的「匯入存檔」選 PDF 就能重新打開編輯（舊版存的 html 檔也可以）。',
-      '另外，程式會把最近編輯的個案自動記在這台裝置的瀏覽器裡，但清除瀏覽器資料就會消失，請以存檔為準。']);
+      '個案會自動加密同步到雲端（Firebase 台灣機房），換手機、平板、電腦用同一個帳號登入都看得到；首頁帳號旁會顯示「已同步到雲端」或「離線中」。']);
+    sec('雲端與離線', ['資料在裝置上加密後才上傳，只有用自己的帳號密碼才能解開，其他同仁與雲端業者都看不到內容。',
+      '沒有網路時照常填寫，修改會先加密存在裝置上，連上網路後自動上傳。第一次在新裝置登入需要網路。',
+      '與他人共用裝置時，用完請按「登出」：登出會刪除這台裝置上的解密金鑰。',
+      '登入密碼若由管理者更換，第一次用新密碼登入時會要求輸入一次舊密碼，以解開原本的資料。']);
     sec('在 iPad 上使用', ['iPad 的 Safari 無法直接開啟「檔案」App 裡的 HTML 檔，開啟方式請見資料夾內的使用說明。']);
     sec('服務碼來源', ['服務碼名稱取自「長期照顧服務申請及給付辦法」附表四、附表四之一（114年6月19日修正）。', '標有「請核對」的是不在附表內的項目（短照 SC 碼、CMS 細分碼），名稱請以 CMS 顯示為準。', '法規修正後若碼別有變，可在「設定」新增自訂項目。']);
     UI.dialog('使用說明', d);
@@ -1361,22 +1377,71 @@ var APP = (function () {
   /* ---------- 啟動 ---------- */
   /* 啟動：已登入（7 天內）直接進首頁，否則顯示登入畫面 */
   function init() {
+    var cloud = CLOUD.available();
+    if (cloud) AUTH.setConnector(function (sess, pw, oldPw) { return CLOUD.connect(sess.u, pw, oldPw); });
     var sess = AUTH.current();
-    if (sess) start(sess); else AUTH.render(start);
+    if (!sess) { AUTH.render(start); return; }
+    if (!cloud) { start(sess); return; }
+    loading('正在載入…');
+    /* 7 天內免輸入密碼：沿用這台裝置保存的雲端登入與資料金鑰；沒有就重新登入 */
+    CLOUD.restore(sess.u).then(function (ok) { if (ok) start(sess); else { AUTH.logout(); AUTH.render(start); } });
+  }
+  function loading(t) {
+    var app = clear(document.getElementById('app'));
+    app.appendChild(h('div', { class: 'loadwrap' }, [h('span', { class: 'loadspin', 'aria-hidden': 'true' }), h('p', { text: t })]));
+  }
+  /* 同步狀態：已同步／同步中／離線 */
+  var SYNC = { online: true, pending: 0 };
+  function syncText() { return !SYNC.online ? (SYNC.pending ? '離線中，' + SYNC.pending + ' 項修改待上傳' : '離線中，連線後自動同步') : SYNC.pending ? '同步中…' : '已同步到雲端'; }
+  function syncBadge() { return h('span', { class: 'syncbadge' + (!SYNC.online ? ' off' : SYNC.pending ? ' busy' : ''), text: syncText() }); }
+  function paintSync() { Array.prototype.forEach.call(document.querySelectorAll('.syncbadge'), function (b) { b.textContent = syncText(); b.className = 'syncbadge' + (!SYNC.online ? ' off' : SYNC.pending ? ' busy' : ''); }); }
+  /* 其他裝置更新了個案：首頁直接重畫；正在編輯的那一筆不覆蓋 */
+  function onRemote(ids) {
+    S.idx = buildIdx();
+    if (!S.rec) renderHome();
+  }
+  function startCloud(sess) {
+    loading('正在從雲端載入個案…');
+    CLOUD.onStatus(function (x) { SYNC = x; paintSync(); });
+    CLOUD.load(onRemote).then(function () {
+      var local = UI.store, cs = CLOUD.store(K), fresh = !cs.get(K.st) && !local.get(K.st), mig = migrateLegacy(), up = 0, localIds = [];
+      /* 這台裝置原本存在瀏覽器裡的個案與設定：加密上傳（雲端已有較新版本的不覆蓋），上傳確認後刪除本機明文 */
+      var lst = local.get(K.st);
+      if (lst && !cs.get(K.st)) cs.set(K.st, lst);
+      (local.get(K.idx) || []).forEach(function (m) {
+        var r = local.get(K.rec + m.id); if (!r) return;
+        localIds.push(m.id);
+        var c = CLOUD.recOf(m.id);
+        if (!c || (c.updatedAt || 0) < (r.updatedAt || 0)) { cs.set(K.rec + m.id, r); up++; }
+      });
+      store = cs; CLOUDON = true;
+      S.st = loadSettings(); S.idx = buildIdx(); store.set(K.idx, S.idx);
+      if (fresh || !nz(S.st.cmName)) { S.st.cmName = sess.name; saveSettings(); }
+      commonStart();
+      if (lst || localIds.length) CLOUD.flush().then(function (res) {
+        if (res.every(Boolean)) { localIds.forEach(function (id) { local.del(K.rec + id); }); local.del(K.idx); local.del(K.st); }
+      });
+      if (up || mig.cases) UI.toast('這台裝置原有的 ' + Math.max(up, mig.cases) + ' 筆個案，已加密同步到 ' + sess.name + ' 的雲端帳號');
+    });
   }
   function start(sess) {
     S.sess = sess; useAccount(sess.u);
+    if (CLOUD.available() && CLOUD._T.key) { startCloud(sess); return; }
     var fresh = !store.get(K.st), mig = migrateLegacy(), moved = mig.cases;
     S.st = loadSettings(); S.idx = store.get(K.idx) || [];
     if (fresh || !nz(S.st.cmName)) { S.st.cmName = sess.name; saveSettings(); }
+    commonStart();
+    if (moved) UI.toast('這台裝置原有的 ' + moved + ' 筆個案，已歸到 ' + sess.name + ' 的帳號');
+  }
+  function commonStart() {
     var dl = h('datalist', { id: 'dl-relations' }); DATA.relations.forEach(function (r) { dl.appendChild(h('option', { value: r })); }); document.body.appendChild(dl);
-    window.addEventListener('beforeunload', function () { if (S.rec && S.timer) saveNow(); });
-    document.addEventListener('visibilitychange', function () { if (document.hidden && S.rec && S.timer) saveNow(); });
+    window.addEventListener('beforeunload', function () { if (S.rec && S.timer) saveNow(); if (CLOUDON) CLOUD.flush(); });
+    window.addEventListener('pagehide', function () { if (S.rec && S.timer) saveNow(); if (CLOUDON) CLOUD.flush(); });
+    document.addEventListener('visibilitychange', function () { if (document.hidden) { if (S.rec && S.timer) saveNow(); if (CLOUDON) CLOUD.flush(); } });
     loadFolder();
     /* 經由網址（http/https）開啟時註冊離線快取，讓 iPad「加入主畫面」後可離線使用；直接開檔案時不需要 */
     if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) { try { navigator.serviceWorker.register('sw.js').catch(function () { }); } catch (e) { } }
     renderHome();
-    if (moved) UI.toast('這台裝置原有的 ' + moved + ' 筆個案，已歸到 ' + sess.name + ' 的帳號');
   }
   return { init: init, _writeToFolder: writeToFolder, _caseFiles: caseFiles, _caseNames: caseNames, _import: importRec, _jump: jumpTo, _S: S, _open: openRec, _new: newRecord, _show: function (id) { showSection(id); }, _norm: normalize, _formHtml: formHtml };
 })();

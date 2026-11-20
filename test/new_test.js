@@ -106,7 +106,12 @@ const OUT = process.env.SHOT_DIR || path.join(__dirname, 'shots');
     [{ vendors: ['吉盛交通股份有限公司', '自訂車行'] }, '吉盛', 2, '自行修改過的設定保留，全名換成簡稱']]) {
     const p2 = await ctx.newPage();
     await p2.goto(FILE); await H.enter(p2);
-    await p2.evaluate(st => { localStorage.setItem('cpgen.' + APP._S.sess.u + '.settings', JSON.stringify(st)); }, st);
+    await p2.evaluate(st => {
+      localStorage.setItem('cpgen.' + APP._S.sess.u + '.settings', JSON.stringify(st));
+      /* 雲端模式：清掉雲端上的設定，讓這台裝置的舊設定重新上傳 */
+      const fs = JSON.parse(localStorage.getItem('__fakefs') || 'null');
+      if (fs) { Object.keys(fs.docs).forEach(k => { if (/\/meta\/settings$/.test(k)) delete fs.docs[k]; }); localStorage.setItem('__fakefs', JSON.stringify(fs)); }
+    }, st);
     await p2.reload(); await H.enter(p2);
     const v2 = await p2.evaluate(() => APP._S.st.vendors);
     ok(v2[0] === expectFirst && v2.length === expectLen && (expectLen !== 21 || v2[7] === '振生'), label + '：' + v2.slice(0, 3).join('、') + '…共 ' + v2.length + ' 個');

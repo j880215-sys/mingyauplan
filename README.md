@@ -23,6 +23,14 @@
 | `tools/official_codes.json`, `tools/aids_eval.json` | 從全國法規資料庫附表四、四之一解析的原始資料 |
 | `test/` | 文字產生器與瀏覽器自動測試（測試個案皆為虛構） |
 
+## 雲端同步
+- Firebase 專案 `mingyauaunit-8bd6d`（Authentication 電子郵件/密碼＋Firestore，機房 asia-east1 台灣），設定在 `src/cloud.js`。
+- 帳號 `mya001` 對應雲端信箱 `mya001@mingyauaunit-8bd6d.firebaseapp.com`，由管理者在 Firebase 後台建立，密碼與登入密碼相同；已關閉自行註冊。
+- Firestore 規則：只能讀寫 `users/{自己的 uid}/…`。
+- 個案與設定以 AES-GCM 加密後才上傳；每個帳號一把資料金鑰，以「登入密碼＋隨機鹽」導出的金鑰包裝後存在 `users/{uid}`。雲端與本機快取都只有密文。
+- 離線：Firestore 離線快取（密文）＋ `web/sw.js` 快取網頁本身。
+- 測試一律使用 `test/fake_firebase.js` 模擬雲端（`test/helpers.js` 自動注入），不會連到正式專案。
+
 ## 建置與測試
 ```bash
 py package.py               # 合併 src/ → dist/，並打包 zip（Windows 用 py；其他系統用 python3）
@@ -32,6 +40,7 @@ node test/flow_test.js      # 存檔兩個 PDF 與年度月份資料夾、PDF／
 node test/aa01_test.js      # AA01：建立、各分頁文字、三段產出、PDF 存檔與匯入
 node test/grid_test.js      # 週間排程表
 node test/age_test.js       # 出生年次換算年齡
+node test/cloud_test.js     # 雲端：加密存放、舊資料上傳、換裝置、離線、密碼更換、刪除、登出
 node test/new_test.js       # 額度帶入、目標換寫法、跳到未填欄位、身障選項、複評比對、交通單位簡稱轉換
 ```
 瀏覽器測試需要 Playwright：`npm install`（依 package.json）後執行 `npx playwright install chromium`。`node_modules/` 只供本機測試，不會打包進成品。

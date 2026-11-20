@@ -6,7 +6,7 @@ src = root / 'src'
 out_dir = root / 'dist' / '照顧計畫產生器'
 out_dir.mkdir(parents=True, exist_ok=True)
 css = (src / 'style.css').read_text(encoding='utf8')
-js = '\n'.join((src / f).read_text(encoding='utf8') for f in ['vendor/html2canvas.min.js', 'pdf.js', 'catalog.js', 'data.js', 'schema.js', 'narrative.js', 'ui.js', 'accounts.js', 'auth.js', 'app.js'])
+js = '\n'.join((src / f).read_text(encoding='utf8') for f in ['vendor/html2canvas.min.js', 'vendor/firebase/firebase-app-compat.js', 'vendor/firebase/firebase-auth-compat.js', 'vendor/firebase/firebase-firestore-compat.js', 'pdf.js', 'catalog.js', 'data.js', 'schema.js', 'narrative.js', 'ui.js', 'accounts.js', 'auth.js', 'cloud.js', 'app.js'])
 # 明曜 logo（src/assets，由原始 logo 裁切縮小）以 data URI 內嵌，維持單一離線檔
 import base64
 for key, name in (('__LOGO_FULL__', 'logo-full.png'), ('__LOGO_MARK__', 'logo-mark.png')):
@@ -49,7 +49,7 @@ html = f"""<!doctype html>
 <div id="app"><noscript>這個程式需要瀏覽器開啟 JavaScript 才能使用。</noscript></div>
 <div id="print"></div>
 <script>
-/* 照顧計畫產生器 版本 {ver}；完全離線，不連線、不上傳任何資料
+/* 照顧計畫產生器 版本 {ver}；個案資料在裝置上加密後才同步到雲端（Firebase 台灣機房）
    {COPYRIGHT} */
 {js}
 </script>
@@ -58,4 +58,6 @@ html = f"""<!doctype html>
 </html>
 """
 (out_dir / '照顧計畫產生器.html').write_text(html, encoding='utf8')
+# 離線快取（經由網址開啟時使用；上線時與 index.html 一起放到網站根目錄）
+(out_dir / 'sw.js').write_text((root / 'web' / 'sw.js').read_text(encoding='utf8'), encoding='utf8')
 print('built', out_dir / '照顧計畫產生器.html', len(html.encode('utf8')) // 1024, 'KB')

@@ -1,11 +1,19 @@
 /* ============================================================
    登入：帳號密碼以 PBKDF2 驗證（帳號檔 src/accounts.js 只有雜湊），
    登入後記住 7 天；個管員姓名在帳號檔中加密，登入成功才解開。
-   注意：程式在瀏覽器端執行，這道門只擋一般使用者；個案資料本來就只存在各自的裝置。
+   帳號密碼驗證通過後，再由 connector（app.js 設定為 CLOUD.connect）連上雲端帳號、解開資料金鑰。
    ============================================================ */
 var AUTH = (function () {
   var h = UI.h, KEY = 'cpgen.session', LAST = 'cpgen.lastUser', DAYS = 7;
-  var fails = 0, lockUntil = 0;
+  var fails = 0, lockUntil = 0, connector = null;
+  var CLOUD_MSG = {
+    'offline-first': '第一次在這台裝置登入需要網路連線，請連上網路後再試。',
+    'cloud-auth': '雲端帳號尚未建立或密碼不一致，請聯絡管理者。',
+    'too-many': '雲端登入嘗試次數過多，請稍後再試。',
+    'disabled': '這個帳號的雲端使用已停用，請聯絡管理者。',
+    'rekey': '登入密碼已更換。請在下方輸入「舊密碼」，以解開雲端上的個案資料（只需要一次）。',
+    'rekey-bad': '舊密碼不正確，無法解開雲端資料，請再試一次。'
+  };
 
   function unb64(s) { var b = atob(s), o = new Uint8Array(b.length); for (var i = 0; i < b.length; i++) o[i] = b.charCodeAt(i); return o; }
   function b64(u8) { var s = ''; for (var i = 0; i < u8.length; i++) s += String.fromCharCode(u8[i]); return btoa(s); }
@@ -41,6 +49,7 @@ var AUTH = (function () {
     return s;
   }
   function logout() { UI.store.del(KEY); }
+  function setConnector(fn) { connector = fn; }
 
   /* ---------- 登入畫面：明曜官網風格（服務實拍照拼貼＋深石板青、白色 LOGO、玻璃質感輸入框） ---------- */
   var TILES = ['__LOGIN_TILE1__', '__LOGIN_TILE2__', '__LOGIN_TILE3__', '__LOGIN_TILE4__', '__LOGIN_TILE5__', '__LOGIN_TILE6__', '__LOGIN_TILE7__', '__LOGIN_TILE8__'];
@@ -70,15 +79,18 @@ var AUTH = (function () {
     });
     var remember = h('input', { type: 'checkbox', 'aria-label': '記住帳號' });
     var msg = h('div', { class: 'lg-msg', role: 'alert' });
+    var oldPw = h('input', { class: 'lg-inp', type: 'password', autocomplete: 'off', 'aria-label': '舊密碼', placeholder: '舊密碼' });
+    var oldField = h('label', { class: 'lg-field lg-old', hidden: true }, [svg(ICON.lock), oldPw]);
     var label = h('span', { text: '登入' }), btn = h('button', { type: 'submit', class: 'lg-btn' }, [h('i', { class: 'lg-spin', 'aria-hidden': 'true' }), label, svg(ICON.arrow, 'lg-ico lg-arrow')]);
     var fields = h('div', { class: 'lg-fields' }, [
       h('label', { class: 'lg-field' }, [svg(ICON.user), user]),
-      h('label', { class: 'lg-field' }, [svg(ICON.lock), pw, eye])
+      h('label', { class: 'lg-field' }, [svg(ICON.lock), pw, eye]),
+      oldField
     ]);
     var last = UI.store.get(LAST); if (last) { user.value = last; remember.checked = true; }
 
     function say(t, ok) { msg.textContent = t; msg.className = 'lg-msg' + (t ? (ok ? ' ok' : ' bad') : ''); }
-    function busy(on) { btn.disabled = on; btn.classList.toggle('busy', on); label.textContent = on ? '登入中' : '登入'; }
+    function busy(on, t) { btn.disabled = on; btn.classList.toggle('busy', on); label.textContent = on ? (t || '登入中') : '登入'; }
     function shake() { fields.classList.remove('shake'); void fields.offsetWidth; fields.classList.add('shake'); }
     function submit(e) {
       e.preventDefault();
@@ -88,6 +100,18 @@ var AUTH = (function () {
       busy(true); say('');
       login(user.value, pw.value).then(function (sess) {
         if (remember.checked) UI.store.set(LAST, sess.u); else UI.store.del(LAST);
+        if (!connector) return sess;
+        busy(true, '連線雲端');
+        return connector(sess, pw.value, oldField.hidden ? '' : oldPw.value).then(function () { return sess; }, function (e) {
+          UI.store.del(KEY);                       /* 雲端沒接上就不算登入 */
+          var c = (e && e.code) || '';
+          busy(false);
+          if (c === 'rekey' || c === 'rekey-bad') { oldField.hidden = false; oldPw.value = ''; setTimeout(function () { oldPw.focus(); }, 30); }
+          say(CLOUD_MSG[c] || ('無法連線到雲端，請確認網路後再試。' + (e && e.message ? '（' + e.message + '）' : '')));
+          return null;
+        });
+      }).then(function (sess) {
+        if (!sess) return;
         say('歡迎回來，' + sess.name, true);
         setTimeout(function () { document.body.classList.remove('loginmode'); onOk(sess); }, 350);
       }, function () {
@@ -120,5 +144,5 @@ var AUTH = (function () {
     setTimeout(function () { (user.value ? pw : user).focus(); }, 60);
   }
 
-  return { login: login, current: current, logout: logout, render: render, ready: ready };
+  return { login: login, current: current, logout: logout, render: render, ready: ready, setConnector: setConnector };
 })();
