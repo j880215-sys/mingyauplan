@@ -17,6 +17,7 @@ docs/範例_*.html
 
 # 本機捷徑
 *.lnk
+*.url
 
 # 本機預覽設定
 .claude/
