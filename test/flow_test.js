@@ -1,4 +1,4 @@
-/* 其他流程：匯出/匯入、計畫更新／異動、複製為複評、設定、列印版面 */
+/* 其他流程：匯出/匯入、設定、列印版面 */
 const { chromium } = require('playwright');
 const path = require('path'), fs = require('fs');
 const S = require('./samples.js');
@@ -16,7 +16,7 @@ fs.mkdirSync(OUT, { recursive: true });
   await page.goto(FILE); await H.enter(page);
   await page.evaluate(f => { APP._open(APP._norm({ id: 'demo', f: f, changes: [] })); }, S.homeCare);
   /* 存檔：兩個 PDF（未設定資料夾 → 這次先下載） */
-  await page.click('.top >> text=存檔');
+  await page.click('.top >> text=下載PDF');
   const dls = [];
   page.on('download', d => dls.push(d));
   await page.click('.dialog footer >> text=這次先下載');
@@ -52,7 +52,7 @@ fs.mkdirSync(OUT, { recursive: true });
   /* 回清單 → 刪除 → 匯入訪視評估表檔 */
   await page.click('.top >> text=返回首頁');
   ok(await page.locator('.caselist >> text=王大同').count() === 1, '清單顯示個案');
-  await page.click('.caselist >> text=刪除'); await page.click('.dialog footer >> text=刪除');
+  await (await H.openCase(page, '王大同')).locator('.crow >> text=刪除').first().click(); await page.click('.dialog footer >> text=刪除');
   ok(await page.locator('.caselist >> text=王大同').count() === 0, '刪除個案');
   const [fc] = await Promise.all([page.waitForEvent('filechooser'), page.click('text=匯入存檔')]);
   await fc.setFiles(formFile);
@@ -60,7 +60,7 @@ fs.mkdirSync(OUT, { recursive: true });
   ok((await page.locator('input[aria-label="個案姓名"]').inputValue()) === '王大同', '從訪視評估表 PDF 匯入後開啟');
   /* 計畫內容 PDF 也可匯入；舊版 html 存檔仍可匯入 */
   await page.click('.top >> text=返回首頁');
-  await page.click('.caselist >> text=刪除'); await page.click('.dialog footer >> text=刪除');
+  await (await H.openCase(page, '王大同')).locator('.crow >> text=刪除').first().click(); await page.click('.dialog footer >> text=刪除');
   const [fcp] = await Promise.all([page.waitForEvent('filechooser'), page.click('text=匯入存檔')]);
   await fcp.setFiles(planFile);
   await page.waitForSelector('input[aria-label="個案姓名"]');
@@ -68,31 +68,26 @@ fs.mkdirSync(OUT, { recursive: true });
   const oldHtml = path.join(OUT, 'old_form.html');
   fs.writeFileSync(oldHtml, await page.evaluate(() => APP._formHtml(APP._S.rec)));
   await page.click('.top >> text=返回首頁');
-  await page.click('.caselist >> text=刪除'); await page.click('.dialog footer >> text=刪除');
+  await (await H.openCase(page, '王大同')).locator('.crow >> text=刪除').first().click(); await page.click('.dialog footer >> text=刪除');
   const [fch] = await Promise.all([page.waitForEvent('filechooser'), page.click('text=匯入存檔')]);
   await fch.setFiles(oldHtml);
   await page.waitForSelector('input[aria-label="個案姓名"]');
   ok((await page.locator('input[aria-label="個案姓名"]').inputValue()) === '王大同', '舊版 html 存檔仍可匯入');
   ok(await page.locator('.rail a[data-sec="change"]').count() === 0, '撰寫計畫裡已沒有「計畫異動」分頁');
   await page.click('.top >> text=返回首頁');
-  /* 設定：改換算表後單位數跟著變 */
-  await page.click('.crow:not(:has(.kindtag.upd)):has-text("王大同") >> text=開啟');
+  /* 設定：只保留個管員姓名、自訂常用服務項目、存檔資料夾 */
+  await (await H.openCase(page, '王大同')).locator('.crow:not(:has(.kindtag.upd))').first().locator('text=開啟').click();
   await page.click('.top >> text=設定');
-  await page.fill('input[aria-label="每週2天換算"]', '8');
+  const sd = await page.locator('.dialog').innerText();
+  ok(sd.includes('個管員姓名') && sd.includes('自訂常用服務項目') && sd.includes('存檔資料夾') && !sd.includes('交通服務單位') && !sd.includes('預設居住地址') && !sd.includes('換算') && !sd.includes('匯出設定檔'), '設定只剩三項');
+  await page.fill('.dialog input[aria-label="個管員姓名"]', '設定測試');
   await page.click('.dialog >> text=儲存設定');
+  ok(await page.evaluate(() => APP._S.st.cmName) === '設定測試', '個管員姓名可儲存');
   await page.click('.top >> text=返回首頁');
-  await page.click('.crow:not(:has(.kindtag.upd)):has-text("王大同") >> text=開啟');
-  await page.click('.rail a[data-sec="plan"]');
-  const line = await page.locator('.sline .sprev').first().innerText();
-  ok(line === 'BA07協助沐浴及洗頭:8單位/月(每週兩天各1單位)', '設定換算表生效：' + line);
-  /* 複製為複評 */
-  await page.click('.top >> text=返回首頁');
-  await page.click('.crow:not(:has(.kindtag.upd)):has-text("王大同") >> text=複製為複評');
-  await page.click('.rail a[data-sec="svc"]');
-  ok(await page.locator('[aria-label="使用服務狀況"] .chip[aria-checked="true"]').innerText() === '使用服務中個案', '複製為複評：狀態為使用服務中');
-  ok(await page.locator('text=服務評值').count() > 0, '複評顯示服務評值');
+  /* 「複製為複評」已移除 */
+  ok(await page.locator('.crow >> text=複製為複評').count() === 0, '個案清單沒有「複製為複評」');
   /* 空白個案也能產出，不會出錯 */
-  await page.click('.top >> text=返回首頁'); await page.click('.mode >> text=撰寫計畫'); await page.click('.rail a[data-sec="output"]');
+  await page.click('.mode >> text=撰寫計畫'); await page.click('.rail a[data-sec="output"]');
   ok((await page.locator('.warnlist li').count()) > 3, '空白個案：檢查清單有提醒');
   /* 列印版面 */
   await page.evaluate(f => { window.print = function () { }; APP._open(APP._norm({ id: 'demo2', f: f, changes: [] })); }, S.dayCare);

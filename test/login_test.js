@@ -52,6 +52,7 @@ fs.mkdirSync(OUT, { recursive: true });
   await page.click('.mode >> text=撰寫計畫');
   ok((await page.locator('input[aria-label="個管員姓名"]').inputValue()) === '測試個管', '新個案自動帶入登入者姓名');
   await page.fill('input[aria-label="個案姓名"]', 'A的個案');
+  await page.click('.top button:text-is("儲存")');
   /* 編輯畫面右上角直接登出：內容先存好 */
   ok(await page.locator('.top .acts >> text=登出').isVisible(), '編輯畫面右上角有「登出」');
   await page.click('.top .acts >> text=登出');

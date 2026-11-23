@@ -49,4 +49,10 @@ async function enter(page, who = TESTERS.a) {
   await page.click('.lg-btn');
   await page.waitForSelector('.homewrap', { timeout: 20000 });
 }
-module.exports = { TESTERS, makeAccount, addTester, enter };
+/* 首頁個案清單依個案收合：展開指定姓名的分組（已展開則不動） */
+async function openCase(page, name) {
+  const g = page.locator('.cgroup', { has: page.locator('.ghead', { hasText: name }) }).first();
+  if (!(await g.evaluate(el => el.classList.contains('open')))) await g.locator('.ghead').click();
+  return g;
+}
+module.exports = { TESTERS, makeAccount, addTester, enter, openCase };

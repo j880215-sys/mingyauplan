@@ -55,6 +55,7 @@ const A = H.TESTERS.a;
   /* 新增一筆、修改後雲端更新 */
   await p.click('.mode b:text-is("撰寫計畫")');
   await p.fill('input[aria-label="個案姓名"]', '雲端李大華');
+  await p.click('.top button:text-is("儲存")');
   await p.waitForTimeout(2200);
   await p.click('.top >> text=返回首頁');
   await p.waitForTimeout(1200);
@@ -112,7 +113,7 @@ const A = H.TESTERS.a;
   await d5.ctx.close();
 
   /* ---- 刪除個案：雲端同步刪除 ---- */
-  await p.click('.crow:has-text("本機王小明") >> text=刪除');
+  await (await H.openCase(p, '本機王小明')).locator('.crow >> text=刪除').click();
   ok((await p.locator('.dialog').innerText()).includes('雲端與你所有裝置'), '刪除提示說明會刪除雲端資料');
   await p.click('.dialog footer >> text=刪除');
   await p.waitForTimeout(1500);

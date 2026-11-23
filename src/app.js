@@ -58,7 +58,9 @@ var APP = (function () {
     return { visitDate: today(), clientJoin: '是', address: S.st.address, cmName: S.st.cmName, attendees: [], members: [], problems: [],
       pCare: [], pPro: [], pAids: [], pRespite: [], pShort: [], pOther: [], pTransAmt: S.st.transAmount };
   }
-  function newRecord() { return { id: UI.uid(), createdAt: Date.now(), updatedAt: Date.now(), f: blankF(), changes: [] }; }
+  /* 新個案 saved:false：按右上角「儲存」才存入（雲端）；存過一次之後的修改自動儲存 */
+  function newRecord() { return { id: UI.uid(), saved: false, createdAt: Date.now(), updatedAt: Date.now(), f: blankF(), changes: [] }; }
+  function unsaved(rec) { rec = rec || S.rec; return !!rec && rec.saved === false; }
   /* 計畫更新／異動：疊加在 CMS 舊計畫上方的一段文字 */
   function newUpdate() {
     return { id: UI.uid(), kind: 'update', createdAt: Date.now(), updatedAt: Date.now(), changes: [],
@@ -67,7 +69,7 @@ var APP = (function () {
   /* AA01：獨立一種紀錄（kind:'aa01'），可從清單裡的個案帶入 */
   function newAA() {
     var f = blankF(); f.problems = [];
-    return { id: UI.uid(), kind: 'aa01', createdAt: Date.now(), updatedAt: Date.now(), changes: [], f: f };
+    return { id: UI.uid(), kind: 'aa01', saved: false, createdAt: Date.now(), updatedAt: Date.now(), changes: [], f: f };
   }
   function isAA(rec) { return !!(rec || S.rec) && (rec || S.rec).kind === 'aa01'; }
   var AA_CARRY = ['name', 'cms', 'identity', 'withCM', 'clientJoin', 'attendees', 'address', 'phone', 'cmName', 'problems', 'pCare', 'pPro', 'pTrans', 'pTransAmt', 'pVendors',
@@ -134,10 +136,11 @@ var APP = (function () {
     delete rec.f.rvMode; delete rec.f.rvCond; delete rec.draftChange;      /* 複評摘要版、舊的異動草稿已整併到「計畫更新／異動」 */
     return rec;
   }
-  function metaOf(rec) { return { id: rec.id, kind: rec.kind || 'plan', name: nz(rec.f.name) || '（未填姓名）', date: rec.f.visitDate || '', updatedAt: rec.updatedAt }; }
+  function metaOf(rec) { return { id: rec.id, kind: rec.kind || 'plan', name: nz(rec.f.name) || '（未填姓名）', caseNo: nz(rec.f.caseNo), date: rec.f.visitDate || '', updatedAt: rec.updatedAt }; }
   function saveNow() {
     if (!S.rec) return;
     clearTimeout(S.timer); S.timer = null;
+    if (unsaved()) { setSaveState('unsaved'); return; }
     var ok = store.set(K.rec + S.rec.id, S.rec), m = metaOf(S.rec), i = -1;
     S.idx.forEach(function (x, j) { if (x.id === m.id) i = j; });
     if (i >= 0) S.idx[i] = m; else S.idx.unshift(m);
@@ -147,8 +150,9 @@ var APP = (function () {
   function scheduleSave() { clearTimeout(S.timer); setSaveState('saving'); S.timer = setTimeout(saveNow, 600); }
   function setSaveState(s) {
     if (!E.save) return;
+    if (unsaved()) { E.save.className = 'savestate warn'; E.save.textContent = '尚未儲存（按「儲存」才會存入' + (CLOUDON ? '雲端' : '') + '）'; return; }
     E.save.className = 'savestate' + (s === 'fail' || !store.ok ? ' warn' : '');
-    E.save.textContent = !store.ok || s === 'fail' ? '此瀏覽器無法自動儲存，離開前請按「存檔」' : s === 'saving' ? '儲存中…' : '已自動儲存在這台裝置';
+    E.save.textContent = !store.ok || s === 'fail' ? '此瀏覽器無法自動儲存，離開前請按「儲存」' : s === 'saving' ? '儲存中…' : CLOUDON ? '已自動儲存到雲端' : '已自動儲存在這台裝置';
   }
   /* ---- 訪視評估表版面：存檔的 PDF、列印、舊版 html 共用 ---- */
   /* ---- 訪視評估表（存檔 html 與列印共用的版面）：A4 公文表格風格，樣式全部限定在 .vf 內 ---- */
@@ -315,7 +319,7 @@ var APP = (function () {
     return caseFiles(rec, function (x) { bar.firstChild.style.width = Math.round(x * 100) + '%'; })
       .then(function (files) { ov.remove(); return files; }, function (e) { ov.remove(); throw e; });
   }
-  /* 「存檔」按鈕：有設定資料夾就自動分到年度／月份；否則下載（iPad 走分享選單） */
+  /* 「下載PDF」按鈕：有設定資料夾就自動分到年度／月份；否則下載（iPad 走分享選單） */
   function saveCase(rec) {
     rec = rec || S.rec; if (rec === S.rec) saveNow();
     function failed(e) { UI.toast('PDF 產生失敗：' + ((e && e.message) || '請再試一次')); }
@@ -332,7 +336,7 @@ var APP = (function () {
     if (!FS.ok) { fallback(UI.isIOS ? '請在分享選單選「儲存到檔案」，放到 ' + folderParts(rec).join('／') : (isAA(rec) ? '已下載 PDF，請放到 ' : '已下載兩個 PDF，請放到 ') + folderParts(rec).join('／') + ' 資料夾'); return; }
     if (!FS.handle) {
       UI.dialog('還沒有設定存檔資料夾', h('div', null, [
-        h('p', { style: 'margin-top:0', text: '選一次存檔資料夾（建議選「照顧計畫產生器」裡的「個案存檔」），之後按「存檔」就會自動依訪視日期放進「' + folderParts(rec).join('／') + '」這類年度、月份資料夾。' }),
+        h('p', { style: 'margin-top:0', text: '選一次存檔資料夾（建議選「照顧計畫產生器」裡的「個案存檔」），之後按「下載PDF」就會自動依訪視日期放進「' + folderParts(rec).join('／') + '」這類年度、月份資料夾。' }),
         h('p', { class: 'help', text: '瀏覽器會詢問是否允許編輯該資料夾，請選允許。' })]),
         [{ label: '這次先下載', on: function () { fallback(); } }, { label: '選擇存檔資料夾', pri: true, on: function () { chooseFolder().then(function () { saveCase(rec); }, function () { }); } }]);
       return;
@@ -349,7 +353,7 @@ var APP = (function () {
     if (!rec || !rec.f) { UI.toast('這個檔案不是本程式存出的檔案'); return; }
     rec = normalize(rec);
     var dup = S.idx.some(function (x) { return x.id === rec.id; });
-    function go() { openRec(rec); saveNow(); UI.toast('已匯入個案'); }
+    function go() { rec.saved = true; openRec(rec); saveNow(); UI.toast('已匯入個案'); }
     if (dup) UI.dialog('清單裡已有這位個案的這次紀錄', h('p', { style: 'margin:0', text: '要用檔案內容覆蓋清單裡的紀錄，還是另存成一筆新的？' }),
       [{ label: '另存一筆', on: function () { rec.id = UI.uid(); go(); } }, { label: '覆蓋', pri: true, on: go }]);
     else go();
@@ -357,7 +361,7 @@ var APP = (function () {
 
   /* ---------- 變動後更新 ---------- */
   function changed() {
-    S.rec.updatedAt = Date.now();
+    S.rec.updatedAt = Date.now(); S.dirty = true;
     refreshConds(); S.hooks.forEach(function (fn) { fn(); });
     refreshDraft(); refreshRail(); refreshTop(); scheduleSave();
   }
@@ -448,24 +452,10 @@ var APP = (function () {
   function renderHome() {
     S.rec = null; E = {};
     var app = clear(document.getElementById('app'));
-    var list = h('div', { class: 'caselist' });
-    if (!S.idx.length) list.appendChild(h('div', { class: 'emptynote', text: '這台裝置還沒有個案。按上方兩個按鈕開始，或用「匯入存檔」打開之前存的檔案。' }));
-    S.idx.slice().sort(function (a, b) { return (b.updatedAt || 0) - (a.updatedAt || 0); }).forEach(function (m) {
-      var d = new Date(m.updatedAt || 0), upd = m.kind === 'update', aa = m.kind === 'aa01';
-      list.appendChild(h('div', { class: 'crow' }, [
-        h('div', null, [h('div', { class: 'cname' }, [m.name, h('span', { class: 'kindtag' + (upd ? ' upd' : aa ? ' aa' : ''), text: upd ? '更新／異動' : aa ? 'AA01' : '撰寫計畫' })]),
-          h('div', { class: 'cmeta', text: (NAR.rocLong(m.date) ? (upd ? '日期 ' : '訪視日 ') + NAR.rocLong(m.date) + '　' : '') + '最後修改 ' + d.toLocaleString('zh-TW', { hour12: false }) })]),
-        h('div', { class: 'cacts' }, [
-          h('button', { type: 'button', class: 'btn pri sm', text: '開啟', onclick: function () { var r = store.get(K.rec + m.id); if (r) openRec(normalize(r)); else UI.toast('找不到這筆資料'); } }),
-          upd ? null : h('button', { type: 'button', class: 'btn sm', text: '建立AA01', title: '帶入這位個案的姓名、在場人員、照顧問題與服務規劃，建立一筆新的 AA01', onclick: function () { var r = store.get(K.rec + m.id); if (r) cloneForAA(normalize(r)); } }),
-          upd || aa ? null : h('button', { type: 'button', class: 'btn sm', text: '複製為複評', title: '帶入這次的內容，建立一筆新的複評紀錄', onclick: function () { var r = store.get(K.rec + m.id); if (r) cloneForReview(normalize(r)); } }),
-          h('button', { type: 'button', class: 'btn sm', text: '存檔', onclick: function () { var r = store.get(K.rec + m.id); if (r) saveCase(normalize(r)); } }),
-          h('button', { type: 'button', class: 'btn sm danger', text: '刪除', onclick: function () {
-            UI.confirmBox('刪除個案', CLOUDON ? '確定刪除「' + m.name + '」嗎？雲端與你所有裝置上的這筆資料都會刪除，無法復原。' : '確定刪除「' + m.name + '」在這台裝置上的資料嗎？刪除後無法復原。', '刪除', function () { store.del(K.rec + m.id); S.idx = S.idx.filter(function (x) { return x.id !== m.id; }); store.set(K.idx, S.idx); renderHome(); }, true);
-          } })
-        ])
-      ]));
-    });
+    /* 個案清單：同一位個案（有案號用案號，否則用姓名）收合成一組，點開看撰寫歷程 */
+    var list = h('div', { class: 'caselist' }), q = h('input', { class: 'inp casesearch', type: 'search', placeholder: '搜尋個案姓名', 'aria-label': '搜尋個案', value: S.caseQ || '' });
+    q.addEventListener('input', function () { S.caseQ = q.value; drawList(); });
+    drawList();
     app.appendChild(h('div', { class: 'homewrap' }, [
       h('div', { class: 'hero' }, [h('span', { class: 'mark', 'aria-hidden': 'true' }), h('div', null, [h('h1', { text: '照顧計畫產生器' }), h('div', { class: 'org', text: ORG })])]),
       h('p', { class: 'lead', text: '家訪時在手機、平板或電腦上點選評估表，程式會同步寫出可貼進衛福部照顧管理系統（CMS）的「計畫目標」與「計畫執行規劃」。' }),
@@ -480,17 +470,67 @@ var APP = (function () {
         h('button', { type: 'button', class: 'btn', text: '使用說明', onclick: openHelp }),
         S.sess ? h('button', { type: 'button', class: 'btn', text: '登出', onclick: askLogout }) : null
       ]),
+      S.idx.length > 1 ? h('div', { class: 'listhead' }, [h('h2', { text: '個案' }), q]) : null,
       list,
       h('div', { class: 'privacy' }, [h('b', { text: '個資提醒　' }), CLOUDON
         ? '個案資料在這台裝置上加密後，才同步到雲端（Google Firebase 台灣機房），只有用你的帳號密碼才能解開，其他同仁與雲端業者都看不到內容。沒有網路時照常使用，連線後自動同步。與他人共用裝置時，用完請按「登出」。'
-        : '本程式完全離線，不會把任何資料傳到網路。個案資料只存在這台裝置的瀏覽器裡；與他人共用裝置時，請在完成後按「存檔」並刪除清單中的資料。',
-        !store.ok ? h('div', { style: 'margin-top:6px;font-weight:600', text: '目前這個瀏覽器無法自動儲存，關閉前請務必按「存檔」保存。' }) : null]),
+        : '本程式完全離線，不會把任何資料傳到網路。個案資料只存在這台裝置的瀏覽器裡；與他人共用裝置時，請在完成後按「下載PDF」並刪除清單中的資料。',
+        !store.ok ? h('div', { style: 'margin-top:6px;font-weight:600', text: '目前這個瀏覽器無法自動儲存，關閉前請務必按「儲存」保存。' }) : null]),
       h('p', { class: 'copyright', text: COPYRIGHT })
     ]));
     window.scrollTo(0, 0);
+    function drawList() {
+      clear(list);
+      if (!S.idx.length) { list.appendChild(h('div', { class: 'emptynote', text: '還沒有個案。按上方兩個按鈕開始，或用「匯入存檔」打開之前存的檔案。' })); return; }
+      var kw = nz(S.caseQ).toLowerCase(), groups = {}, order = [];
+      S.idx.forEach(function (m) {
+        var key = nz(m.caseNo) ? 'no:' + nz(m.caseNo) : 'name:' + nz(m.name);
+        if (!groups[key]) { groups[key] = { key: key, name: m.name, caseNo: nz(m.caseNo), recs: [], last: 0 }; order.push(key); }
+        groups[key].recs.push(m); groups[key].last = Math.max(groups[key].last, m.updatedAt || 0);
+      });
+      var gs = order.map(function (k) { return groups[k]; })
+        .filter(function (g) { return !kw || (g.name + ' ' + g.caseNo).toLowerCase().indexOf(kw) >= 0; })
+        .sort(function (a, b) { return b.last - a.last; });
+      if (!gs.length) { list.appendChild(h('div', { class: 'emptynote', text: '找不到符合「' + S.caseQ + '」的個案。' })); return; }
+      S.openGroups = S.openGroups || {};
+      gs.forEach(function (g) {
+        /* 歷程：依訪視日期由新到舊 */
+        g.recs.sort(function (a, b) { return (b.date || '').localeCompare(a.date || '') || (b.updatedAt || 0) - (a.updatedAt || 0); });
+        var open = !!S.openGroups[g.key], latest = g.recs[0], base = g.recs.filter(function (m) { return m.kind !== 'update'; })[0];
+        var body = h('div', { class: 'gbody', hidden: !open });
+        g.recs.forEach(function (m) { body.appendChild(recRow(m)); });
+        var head = h('div', { class: 'ghead', role: 'button', tabindex: '0', 'aria-expanded': open ? 'true' : 'false', onclick: toggle, onkeydown: function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } } }, [
+          h('span', { class: 'chev', 'aria-hidden': 'true' }),
+          h('div', { class: 'gmain' }, [
+            h('div', { class: 'cname' }, [g.name, g.caseNo ? h('span', { class: 'caseno', text: '案號 ' + g.caseNo }) : null, h('span', { class: 'gcount', text: g.recs.length + ' 筆' })]),
+            h('div', { class: 'cmeta', text: '最近：' + kindName(latest) + (NAR.rocLong(latest.date) ? '　' + NAR.rocLong(latest.date) : '') })]),
+          base ? h('button', { type: 'button', class: 'btn sm', text: '建立AA01', title: '以這位個案最近一筆紀錄帶入資料，建立新的 AA01', onclick: function (e) { e.stopPropagation(); var r = store.get(K.rec + base.id); if (r) cloneForAA(normalize(r)); } }) : null
+        ]);
+        var grp = h('div', { class: 'cgroup' + (open ? ' open' : '') }, [head, body]);
+        function toggle() { open = !open; S.openGroups[g.key] = open; body.hidden = !open; grp.classList.toggle('open', open); head.setAttribute('aria-expanded', open ? 'true' : 'false'); }
+        list.appendChild(grp);
+      });
+    }
+    function kindName(m) { return m.kind === 'update' ? '更新／異動' : m.kind === 'aa01' ? 'AA01' : '撰寫計畫'; }
+    function recRow(m) {
+      var d = new Date(m.updatedAt || 0), upd = m.kind === 'update', aa = m.kind === 'aa01';
+      return h('div', { class: 'crow' }, [
+        h('div', null, [h('div', { class: 'rtitle' }, [h('span', { class: 'kindtag' + (upd ? ' upd' : aa ? ' aa' : ''), text: kindName(m) }), h('b', { text: NAR.rocLong(m.date) || '未填日期' })]),
+          h('div', { class: 'cmeta', text: '最後修改 ' + d.toLocaleString('zh-TW', { hour12: false }) })]),
+        h('div', { class: 'cacts' }, [
+          h('button', { type: 'button', class: 'btn pri sm', text: '開啟', onclick: function () { var r = store.get(K.rec + m.id); if (r) openRec(normalize(r)); else UI.toast('找不到這筆資料'); } }),
+          h('button', { type: 'button', class: 'btn sm', text: '下載PDF', onclick: function () { var r = store.get(K.rec + m.id); if (r) saveCase(normalize(r)); } }),
+          h('button', { type: 'button', class: 'btn sm danger', text: '刪除', onclick: function () {
+            var what = '「' + m.name + '」' + (NAR.rocLong(m.date) || '') + '的' + kindName(m);
+            UI.confirmBox('刪除紀錄', CLOUDON ? '確定刪除' + what + '嗎？雲端與你所有裝置上的這筆資料都會刪除，無法復原。' : '確定刪除' + what + '在這台裝置上的資料嗎？刪除後無法復原。', '刪除', function () { store.del(K.rec + m.id); S.idx = S.idx.filter(function (x) { return x.id !== m.id; }); store.set(K.idx, S.idx); renderHome(); }, true);
+          } })
+        ])
+      ]);
+    }
   }
   /* 登出：先存好目前編輯的內容；個案留在這台裝置，同一帳號再登入就看得到 */
   function askLogout() {
+    if (S.rec && unsaved() && S.dirty) { leaveCheck(askLogout); return; }
     if (S.rec) saveNow();
     if (CLOUDON) {
       UI.confirmBox('登出', '要登出「' + S.sess.name + '」嗎？個案已加密同步到雲端，下次在任何裝置用同一個帳號登入就會看到。' + (CLOUD.pending() ? '（目前有修改尚未上傳，連上網路後會自動完成）' : ''), '登出', function () {
@@ -501,39 +541,46 @@ var APP = (function () {
     }
     UI.confirmBox('登出', '要登出「' + S.sess.name + '」嗎？目前內容已自動儲存，這台裝置上的個案會保留，下次用同一個帳號登入就會看到。', '登出', function () { AUTH.logout(); location.reload(); });
   }
-  function cloneForReview(rec) {
-    var n = JSON.parse(JSON.stringify(rec));
-    n.id = UI.uid(); n.createdAt = n.updatedAt = Date.now(); n.changes = []; n.draftChange = null;
-    /* 保留前次內容供比對（不含手繪圖與已產出的文字，避免檔案過大） */
-    var pf = JSON.parse(JSON.stringify(rec.f)); delete pf.genogram; delete pf.outGoal; delete pf.outPlan;
-    n.prev = { date: rec.f.visitDate || '', f: pf };
-    delete n.f.rvPlan;
-    n.f.visitDate = today(); n.f.visitType = '複評'; n.f.svcStatus = '使用服務中個案';
-    delete n.f.outGoal; delete n.f.outPlan; n.f.outGoalEdited = false; n.f.outPlanEdited = false;
-    openRec(n); saveNow(); UI.toast('已帶入上次內容，請修改有變動的地方');
-  }
+
 
   /* ============================================================
      編輯畫面
      ============================================================ */
   function openRec(rec) {
-    S.rec = rec;
+    S.rec = rec; S.dirty = false;
     if (rec.kind === 'update') { S.sec = 'update'; renderUpdate(); return; }
     SECS = rec.kind === 'aa01' ? SCHEMA.aaSections : SCHEMA.sections; GROUPS = rec.kind === 'aa01' ? AA_GROUPS : PLAN_GROUPS;
     S.sec = SECS[0].id; renderEditor();
   }
   /* 設定變更後重畫目前畫面 */
   function rerender() { if (!S.rec) return; if (isUpd()) renderUpdate(); else showSection(S.sec); }
+  /* 右上角「儲存」：新個案第一次儲存後，之後的修改自動儲存 */
+  function doSave() {
+    if (!S.rec) return;
+    var first = unsaved();
+    S.rec.saved = true; S.rec.updatedAt = Date.now(); saveNow();
+    if (CLOUDON) CLOUD.flush();
+    S.dirty = false;
+    UI.toast(first ? '已儲存' + (CLOUDON ? '到雲端' : '') + '，之後的修改會自動儲存' : '已儲存' + (CLOUDON ? '到雲端' : ''));
+    if (E.saveBtn) E.saveBtn.classList.toggle('pulse', false);
+  }
+  /* 離開編輯畫面前：新個案尚未儲存就提醒 */
+  function leaveCheck(go) {
+    if (!S.rec || !unsaved() || !S.dirty) { go(); return; }
+    UI.dialog('尚未儲存', h('p', { style: 'margin:0;white-space:pre-wrap', text: '若需儲存個案，請按右上角「儲存」，才會存入' + (CLOUDON ? '雲端資料' : '這台裝置') + '；否則不儲存檔案。' }),
+      [{ label: '取消' }, { label: '不儲存，離開', danger: true, on: function () { S.rec = null; go(); } }, { label: '儲存後離開', pri: true, on: function () { doSave(); go(); } }]);
+  }
   function topBar(app) {
     E.info = h('div', { class: 'caseinfo' });
     E.save = h('div', { class: 'savestate' });
-    function goHome() { saveNow(); S.idx = CLOUDON ? buildIdx() : (store.get(K.idx) || S.idx); renderHome(); }
+    function goHome() { leaveCheck(function () { if (S.rec) saveNow(); S.idx = CLOUDON ? buildIdx() : (store.get(K.idx) || S.idx); renderHome(); }); }
     app.appendChild(h('header', { class: 'top' }, [
       h('div', { class: 'brand home', role: 'button', tabindex: '0', title: '返回首頁', onclick: goHome, onkeydown: function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); goHome(); } } },
         [h('span', { class: 'mark', 'aria-hidden': 'true' }), h('span', { class: 'bt' }, [h('b', { text: '照顧計畫產生器' }), h('small', { text: ORG })])]), E.info, E.save,
       h('div', { class: 'acts' }, [
         h('button', { type: 'button', class: 'btn sm', text: '‹ 返回首頁', title: '回到首頁（個案清單），目前內容會先自動儲存', onclick: goHome }),
-        h('button', { type: 'button', class: 'btn sm pri', text: '存檔', title: isAA() ? '存出「AA01」PDF' : isUpd() ? '存出「計畫更新異動」與「計畫更新異動內容」兩個 PDF' : '存出「訪視評估表」與「計畫內容」兩個 PDF', onclick: function () { saveCase(); } }),
+        E.saveBtn = h('button', { type: 'button', class: 'btn sm pri', text: '儲存', title: CLOUDON ? '存入雲端' : '存入這台裝置', onclick: doSave }),
+        h('button', { type: 'button', class: 'btn sm', text: '下載PDF', title: isAA() ? '存出「AA01」PDF' : isUpd() ? '存出「計畫更新異動」與「計畫更新異動內容」兩個 PDF' : '存出「訪視評估表」與「計畫內容」兩個 PDF', onclick: function () { saveCase(); } }),
         h('button', { type: 'button', class: 'btn sm', text: isUpd() || isAA() ? '列印' : '列印評估表', onclick: printForm }),
         h('button', { type: 'button', class: 'btn sm', text: '設定', onclick: openSettings }),
         S.sess ? h('button', { type: 'button', class: 'btn sm', text: '登出', title: '登出 ' + S.sess.name + '（' + S.sess.u + '）', onclick: askLogout }) : null
@@ -979,7 +1026,7 @@ var APP = (function () {
       UI.field({ id: 'careFlags', type: 'multi', label: '照顧服務註記（寫在【照顧服務】後面）', options: ['聘有外籍看護', '超額服務需求', '例假日服務需求', '晚間服務需求'] }, f, ctx),
       UI.field({ id: 'careFlagNote', type: 'text', label: '其他註記', w: '100%', ph: '如：個案獨居有例假日服務需求' }, f, ctx)]);
     pane.appendChild(linesBlock('1. 照顧服務', 'pCare', 'care', 'care', '照顧服務項目', flags, null,
-      '每月單位數依頻率自動換算（每週1天＝' + S.st.weekFactor[1] + '、2天＝' + S.st.weekFactor[2] + '、3天＝' + S.st.weekFactor[3] + '、5天＝' + S.st.weekFactor[5] + '、每日＝' + S.st.weekFactor[7] + '，可在設定調整），也可以直接改數字。'));
+      '每月單位數依頻率自動換算（每週1天＝' + S.st.weekFactor[1] + '、2天＝' + S.st.weekFactor[2] + '、3天＝' + S.st.weekFactor[3] + '、5天＝' + S.st.weekFactor[5] + '、每日＝' + S.st.weekFactor[7] + '），也可以直接改數字。'));
     pane.appendChild(linesBlock('專業服務', 'pPro', 'pro', 'pro', '專業服務項目'));
     var vend = { id: 'pVendors', type: 'multi', label: '服務單位', other: true, options: arr(S.st.vendors) };
     var transBox = h('div', { class: 'fields', style: 'padding:0' }, [
@@ -1062,8 +1109,8 @@ var APP = (function () {
     if (review) {
       if (prev && f.rvPlan === undefined) f.rvPlan = NAR.planDiff(f, prev, S.st);
       var rc = { changed: function () { changed(); }, conds: S.conds };
-      var kids = [h('p', { class: 'tip', text: (prev ? '已和前次紀錄（' + (NAR.rocLong(S.rec.prev.date) || '日期未填') + ' 訪視）的服務規劃比對，自動帶入下面這段，請依實際狀況修改。' : '這筆紀錄不是用「複製為複評」建立的，沒有前次紀錄可以比對，請自行填寫。')
-          + '這段會寫在「6、服務使用狀況」最後。只要疊加一段在 CMS 舊計畫上方的，請改用首頁的「計畫更新／異動」。' }),
+      var kids = [h('p', { class: 'tip', text: (prev ? '已和前次紀錄（' + (NAR.rocLong(S.rec.prev.date) || '日期未填') + ' 訪視）的服務規劃比對，自動帶入下面這段，請依實際狀況修改。' : '沒有前次紀錄可以比對，請自行填寫。')
+          + '這段會寫在「6、服務使用狀況」最後。只要疊加一段在 CMS 舊計畫上方的，請改用首頁的「AA01」。' }),
         h('div', { class: 'fields', style: 'padding:0' }, [
           UI.field({ id: 'rvPlan', type: 'textarea', label: '與前次計畫不同之處', rows: 2, ph: '如：與前次計畫相比，新增BA07協助沐浴及洗頭(9單位/月)，其餘服務維持不變' }, f, rc)])];
       if (prev) kids.push(h('div', { class: 'inline', style: 'margin-top:10px' }, [h('button', { type: 'button', class: 'btn sm', text: '依前次紀錄重新帶入', onclick: function () {
@@ -1090,7 +1137,7 @@ var APP = (function () {
     S.hooks.push(function () { fills.forEach(function (fn) { fn(); }); });
     pane.appendChild(block('留存', [h('div', { class: 'inline' }, [
       h('button', { type: 'button', class: 'btn', text: '列印訪視評估表（可另存 PDF）', onclick: printForm }),
-      h('button', { type: 'button', class: 'btn pri', text: '存檔（訪視評估表＋計畫內容）', onclick: function () { saveCase(); } })]),
+      h('button', { type: 'button', class: 'btn pri', text: '下載PDF（訪視評估表＋計畫內容）', onclick: function () { saveCase(); } })]),
       h('p', { class: 'help', text: '會存出「' + caseName(S.rec) + '訪視評估表.pdf」與「' + caseName(S.rec) + '計畫內容.pdf」。訪視評估表檔之後可以用首頁的「匯入存檔」重新打開，供複評使用。' })]));
   };
 
@@ -1114,7 +1161,7 @@ var APP = (function () {
     S.hooks.push(function () { fills.forEach(function (fn) { fn(); }); });
     pane.appendChild(block('留存', [h('div', { class: 'inline' }, [
       h('button', { type: 'button', class: 'btn', text: '列印（可另存 PDF）', onclick: printForm }),
-      h('button', { type: 'button', class: 'btn pri', text: '存檔（AA01 PDF）', onclick: function () { saveCase(); } })]),
+      h('button', { type: 'button', class: 'btn pri', text: '下載PDF（AA01）', onclick: function () { saveCase(); } })]),
       h('p', { class: 'help', text: '會存出「' + fileBase(S.rec) + '.pdf」，之後可以用首頁的「匯入存檔」重新打開。' })]));
   }
 
@@ -1292,19 +1339,14 @@ var APP = (function () {
      設定、說明
      ============================================================ */
   function openSettings() {
-    var st = S.st, body = h('div'), tmp = { cmName: st.cmName, address: st.address, transAmount: st.transAmount, vendors: arr(st.vendors).join('\n'), headGap: st.headGap };
-    var wf = {}; [1, 2, 3, 4, 5, 6, 7].forEach(function (n) { wf['w' + n] = String(st.weekFactor[n]); });
+    /* 只保留：個管員姓名、自訂常用服務項目、存檔資料夾（其他設定維持預設或原本的值） */
+    var st = S.st, body = h('div'), tmp = { cmName: st.cmName };
     var cust = JSON.parse(JSON.stringify(arr(st.customItems)));
     var c = { changed: function () { }, conds: [] };
     function rowEl(label, el) { return [h('div', { class: 'fl', text: label }), h('div', null, el)]; }
     var grid = h('div', { class: 'setgrid' });
     [].concat(
-      rowEl('個管員姓名（新個案自動帶入；預設為登入帳號的姓名）', UI.textInput({ id: 'cmName', type: 'text', w: '12em', aria: '個管員姓名' }, tmp, c)),
-      rowEl('預設居住地址', UI.textInput({ id: 'address', type: 'text', w: '100%', aria: '預設居住地址' }, tmp, c)),
-      rowEl('DA01 交通額度（元/月）', UI.textInput({ id: 'transAmount', type: 'number', w: '8em', aria: '交通額度' }, tmp, c)),
-      rowEl('交通服務單位（一行一個，依此順序顯示）', UI.textareaInput({ id: 'vendors', rows: 8, label: '交通服務單位' }, tmp, c)),
-      rowEl('每週天數換算每月單位', h('div', { class: 'inline' }, [1, 2, 3, 4, 5, 6, 7].map(function (n) { return h('span', { class: 'inwrap' }, [n + '天', UI.textInput({ id: 'w' + n, type: 'number', w: '4em', aria: '每週' + n + '天換算' }, wf, c)]); }))),
-      rowEl('「壹、」後面的間隔', UI.singleInput({ id: 'headGap', options: [{ v: '　', l: '全形空白' }, { v: '\t', l: 'Tab' }, { v: '', l: '不空' }], compact: 1, label: '間隔' }, tmp, c))
+      rowEl('個管員姓名（新個案自動帶入；預設為登入帳號的姓名）', UI.textInput({ id: 'cmName', type: 'text', w: '12em', aria: '個管員姓名' }, tmp, c))
     ).forEach(function (el) { grid.appendChild(el); });
     body.appendChild(grid);
     body.appendChild(h('div', { class: 'pickgrp', text: '自訂常用服務項目（會出現在選取視窗）' }));
@@ -1323,20 +1365,11 @@ var APP = (function () {
     drawCust(); body.appendChild(cl);
     body.appendChild(h('div', { class: 'pickgrp', text: '存檔資料夾' }));
     var fsLab = h('span', { class: 'help' });
-    function fsShow() { fsLab.textContent = !FS.ok ? '這個瀏覽器不支援自動存入資料夾（iPad 的 Safari、Firefox 都不支援）；按「存檔」時會改用下載或分享選單，由您選擇位置。' : FS.handle ? '目前：' + FS.handle.name + '（按「存檔」時自動分到「年度／月份」子資料夾）' : '尚未選擇。建議選「照顧計畫產生器」裡的「個案存檔」。'; }
+    function fsShow() { fsLab.textContent = !FS.ok ? '這個瀏覽器不支援自動存入資料夾（iPad 的 Safari、Firefox 都不支援）；按「下載PDF」時會改用下載或分享選單，由您選擇位置。' : FS.handle ? '目前：' + FS.handle.name + '（按「下載PDF」時自動分到「年度／月份」子資料夾）' : '尚未選擇。建議選「照顧計畫產生器」裡的「個案存檔」。'; }
     fsShow();
     body.appendChild(h('div', { class: 'inline' }, [FS.ok ? h('button', { type: 'button', class: 'btn sm', text: '選擇存檔資料夾', onclick: function () { chooseFolder().then(fsShow, function () { }); } }) : null, fsLab]));
-    body.appendChild(h('div', { class: 'pickgrp', text: '設定檔與資料' }));
-    body.appendChild(h('div', { class: 'inline' }, [
-      h('button', { type: 'button', class: 'btn sm', text: '匯出設定檔（給同事用）', onclick: function () { UI.download('照顧計畫產生器_設定.json', JSON.stringify({ app: 'care-plan-generator-settings', st: S.st }, null, 1)); } }),
-      h('button', { type: 'button', class: 'btn sm', text: '匯入設定檔', onclick: function () { UI.pickFile(function (o) { if (o && o.app === 'care-plan-generator-settings' && o.st) { S.st = migrateSettings(o.st); saveSettings(); dlg.close(); UI.toast('已套用設定'); rerender(); } else UI.toast('這不是設定檔'); }); } }),
-      h('button', { type: 'button', class: 'btn sm danger', text: '清除這個帳號在這台裝置上的全部個案', onclick: function () {
-        UI.confirmBox('清除全部個案', CLOUDON ? '這會刪除這個帳號在雲端與所有裝置上的全部個案資料，無法復原。需要保留的請先存檔。' : '這會刪除這個帳號在這台裝置上的所有個案資料，無法復原。需要保留的請先存檔。', '全部清除', function () { S.idx.forEach(function (m) { store.del(K.rec + m.id); }); S.idx = []; store.set(K.idx, S.idx); dlg.close(); renderHome(); }, true);
-      } })]));
     var dlg = UI.dialog('設定', body, [{ label: '取消' }, { label: '儲存設定', pri: true, on: function () {
-      st.cmName = nz(tmp.cmName); st.address = nz(tmp.address); st.transAmount = nz(tmp.transAmount) || '1840';
-      st.vendors = nz(tmp.vendors).split(/[、,，\r\n]+/).map(nz).filter(Boolean); st.headGap = tmp.headGap === undefined ? '　' : tmp.headGap; delete st.showAddTag;
-      [1, 2, 3, 4, 5, 6, 7].forEach(function (n) { var v = parseFloat(wf['w' + n]); if (v > 0) st.weekFactor[n] = v; });
+      st.cmName = nz(tmp.cmName); delete st.showAddTag;
       st.customItems = cust.filter(function (x) { return nz(x.code) || nz(x.name); });
       saveSettings(); UI.toast('設定已儲存'); rerender();
     } }]);
@@ -1347,12 +1380,13 @@ var APP = (function () {
     sec('首頁兩個入口', ['「撰寫計畫」：初評、出備初評、複評，依訪視評估表從頭寫出完整計畫。',
       '「AA01」：舊計畫保留，新內容貼在 CMS 各欄位最上方，與舊紀錄以「-----」區隔。']);
     sec('撰寫計畫的流程', [
-      '按「撰寫計畫」。複評時可改用清單上的「複製為複評」，會帶入上次內容並比對服務差異。',
+      '按「撰寫計畫」。',
       '依左側 壹 → 貳 的分頁點選評估內容。每個分頁右側（平板在底部）會即時顯示這一段的計畫文字。',
       '到「參　照顧問題」依 CMS 核定的問題清單勾選，並調整說明。',
       '到「肆　服務規劃」選取服務碼、頻率與備註；「計畫目標」會自動擬一版短中長期目標。',
       '到「產生計畫」檢查提醒事項，分別複製「計畫目標」「計畫執行規劃」貼到 CMS。',
-      '按右上角「存檔」，存出「○○訪視評估表.pdf」與「○○計畫內容.pdf」兩個 PDF。',
+      '新個案要按右上角「儲存」才會存入雲端（第一次儲存後，之後的修改自動儲存；沒儲存就離開會跳出提醒）。',
+      '需要 PDF 時按「下載PDF」，存出「○○訪視評估表.pdf」與「○○計畫內容.pdf」兩個 PDF。',
       '需要紙本或 PDF 時，按「列印評估表」。'], true);
     sec('AA01 的流程', ['在個案清單按「建立AA01」，會帶入姓名、在場人員與服務規劃（也可以按首頁的「AA01」從空白開始，填好姓名後會找到同姓名的撰寫計畫）。',
       '「個案概況」：生理、心理、居家環境、生活習慣各點「維持／進步／退步」並補充；再填照顧者狀況與服務使用狀況。',
@@ -1361,8 +1395,8 @@ var APP = (function () {
       '「計畫目標」：先評值前次目標（已達成／部分達成…），新的短中長期目標自動產生並加上 1／3／6 個月。',
       '「其他備註」：核定 AA08／AA09 或有超額自費需求時勾選填寫。',
       '「產生計畫」複製三段文字，分別貼在 CMS 計畫目標、計畫執行規劃欄最上方及其他備註欄；存檔會存出「○○○AA01_日期.pdf」。'], true);
-    sec('存檔與資料夾', ['電腦（Chrome 或 Edge）：第一次按「存檔」時選一次存檔資料夾，之後會自動依訪視日期存進「115年度／11月」這類子資料夾。',
-      'iPad（Safari）：按「存檔」會跳出分享選單，請選「儲存到檔案」並自行選資料夾；Safari 無法自動分資料夾。',
+    sec('存檔與資料夾', ['電腦（Chrome 或 Edge）：第一次按「下載PDF」時選一次存檔資料夾，之後會自動依訪視日期存進「115年度／11月」這類子資料夾。',
+      'iPad（Safari）：按「下載PDF」會跳出分享選單，請選「儲存到檔案」並自行選資料夾；Safari 無法自動分資料夾。',
       '存出的 PDF 可直接列印或傳給督導；PDF 內夾帶個案資料，在任何一台裝置用首頁的「匯入存檔」選 PDF 就能重新打開編輯（舊版存的 html 檔也可以）。',
       '個案會自動加密同步到雲端（Firebase 台灣機房），換手機、平板、電腦用同一個帳號登入都看得到；首頁帳號旁會顯示「已同步到雲端」或「離線中」。']);
     sec('雲端與離線', ['資料在裝置上加密後才上傳，只有用自己的帳號密碼才能解開，其他同仁與雲端業者都看不到內容。',
@@ -1435,7 +1469,10 @@ var APP = (function () {
   }
   function commonStart() {
     var dl = h('datalist', { id: 'dl-relations' }); DATA.relations.forEach(function (r) { dl.appendChild(h('option', { value: r })); }); document.body.appendChild(dl);
-    window.addEventListener('beforeunload', function () { if (S.rec && S.timer) saveNow(); if (CLOUDON) CLOUD.flush(); });
+    window.addEventListener('beforeunload', function (e) {
+      if (S.rec && unsaved() && S.dirty) { e.preventDefault(); e.returnValue = ''; return ''; }
+      if (S.rec && S.timer) saveNow(); if (CLOUDON) CLOUD.flush();
+    });
     window.addEventListener('pagehide', function () { if (S.rec && S.timer) saveNow(); if (CLOUDON) CLOUD.flush(); });
     document.addEventListener('visibilitychange', function () { if (document.hidden) { if (S.rec && S.timer) saveNow(); if (CLOUDON) CLOUD.flush(); } });
     loadFolder();

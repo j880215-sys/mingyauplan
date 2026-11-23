@@ -70,14 +70,19 @@ const OUT = process.env.SHOT_DIR || path.join(__dirname, 'shots');
   await page.evaluate(f => { APP._open(APP._norm({ id: 'r1', f: f, changes: [] })); }, S.homeCare);
   await page.waitForTimeout(700);
   await page.click('.top >> text=返回首頁');
-  await page.click('.crow:has-text("王大同") >> text=複製為複評');
-  await page.evaluate(() => { const f = APP._S.rec.f; f.gait = '輪椅代步'; f.pCare = f.pCare.filter(l => l.code !== 'BA20'); f.pCare[0].n = 3; APP._show('output'); });
+  ok(await page.locator('text=複製為複評').count() === 0, '個案清單已移除「複製為複評」');
+  /* 舊資料中帶有前次紀錄的複評：仍可比對差異 */
+  await page.evaluate(f0 => {
+    const prev = JSON.parse(JSON.stringify(f0)), f = JSON.parse(JSON.stringify(f0));
+    f.visitType = '複評'; f.svcStatus = '使用服務中個案'; f.visitDate = '2026-11-20';
+    f.gait = '輪椅代步'; f.pCare = f.pCare.filter(l => l.code !== 'BA20'); f.pCare[0].n = 3;
+    APP._open(APP._norm({ id: 'r2', f: f, prev: { date: f0.visitDate, f: prev }, changes: [] })); APP._show('output');
+  }, S.homeCare);
   const rp = await page.locator('textarea[aria-label="與前次計畫不同之處"]').inputValue();
   ok(/BA07協助沐浴及洗頭由9單位\/月調整為14單位\/月/.test(rp) && rp.includes('取消BA20陪伴服務'), '複評自動比對差異：' + rp);
   const goal = await page.locator('textarea[aria-label="計畫目標"]').inputValue();
   ok(/^壹、　本案於115年11月\d+日與照專一同複評家訪/.test(goal) && goal.includes('與前次計畫相比'), '複評：開頭為複評家訪、服務使用狀況帶入差異');
   ok(await page.locator('[aria-label="複評寫法"]').count() === 0, '撰寫計畫已不提供摘要版（改由「計畫更新／異動」）');
-  ok(await page.evaluate(() => APP._S.rec.f.visitType) === '複評', '複製為複評：訪視類型為「複評」');
   /* 訪視類型：四個選項；舊資料轉換 */
   await page.evaluate(() => APP._show('basic'));
   ok(JSON.stringify(await page.locator('[aria-label="訪視類型"] .chip').allInnerTexts()) === JSON.stringify(['初評', '出備初評', '複評']), '訪視類型為「初評」「出備初評」「複評」（AA01 已獨立）');

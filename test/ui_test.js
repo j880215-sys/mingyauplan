@@ -25,6 +25,9 @@ const SECS = ['basic', 'phys', 'psych', 'family', 'home', 'routine', 'svc', 'pro
   ok(await page.locator('.mode >> text=撰寫計畫').count() > 0 && await page.locator('.mode b', { hasText: /^AA01$/ }).count() > 0, '首頁顯示兩個入口（撰寫計畫、AA01）');
   await page.click('.mode >> text=撰寫計畫');
   await page.fill('input[aria-label="個案姓名"]', '測試阿嬤');
+  ok((await page.locator('.top .savestate').innerText()).includes('尚未儲存'), '新個案顯示「尚未儲存」');
+  await page.click('.top button:text-is("儲存")');
+  ok((await page.locator('.top .savestate').innerText()).includes('已自動儲存'), '按「儲存」後改為自動儲存');
   await page.fill('input[aria-label="個管員姓名"]', '測試個管');
   await page.click('[aria-label="與照專一同家訪"] >> text=是');
   await page.click('text=＋ 新增參與者');
@@ -74,8 +77,25 @@ const SECS = ['basic', 'phys', 'psych', 'family', 'home', 'routine', 'svc', 'pro
   await page.waitForTimeout(900);
   await page.reload(); await H.enter(page);
   ok(await page.locator('.caselist >> text=測試阿嬤').count() === 1, '重新整理後個案仍在清單（本機儲存）');
-  await page.click('.caselist >> text=開啟');
+  await (await H.openCase(page, '測試阿嬤')).locator('.crow >> text=開啟').click();
   ok((await page.locator('input[aria-label="個案姓名"]').inputValue()) === '測試阿嬤', '重新開啟後資料完整');
+  /* 新個案沒按「儲存」就離開：跳出提醒；不儲存就不會出現在清單 */
+  await page.click('.top >> text=返回首頁');
+  await page.click('.mode b:text-is("撰寫計畫")');
+  await page.fill('input[aria-label="個案姓名"]', '不要存的個案');
+  await page.click('.top >> text=返回首頁');
+  ok((await page.locator('.dialog').innerText()).includes('若需儲存個案，請按右上角「儲存」'), '未儲存就返回首頁：跳出提醒');
+  await page.click('.dialog footer >> text=不儲存，離開');
+  ok(await page.locator('.caselist >> text=不要存的個案').count() === 0, '選「不儲存」：清單沒有這筆');
+  await page.click('.mode b:text-is("撰寫計畫")');
+  await page.fill('input[aria-label="個案姓名"]', '離開前儲存');
+  await page.click('.top >> text=返回首頁');
+  await page.click('.dialog footer >> text=儲存後離開');
+  ok(await page.locator('.caselist >> text=離開前儲存').count() === 1, '選「儲存後離開」：清單有這筆');
+  await page.click('.mode b:text-is("撰寫計畫")');
+  await page.click('.top >> text=返回首頁');
+  ok(await page.locator('.dialog').count() === 0, '沒填任何內容的新個案直接離開不提醒');
+  ok(await page.locator('.top >> text=下載PDF').count() === 0, '首頁沒有編輯按鈕');
   ok(requests.length === 0, '沒有任何對外連線（' + requests.length + '）');
   await ctx.close();
 
