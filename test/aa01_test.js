@@ -117,6 +117,18 @@ fs.mkdirSync(OUT, { recursive: true });
   const grp = await H.openCase(page, '王大同');
   ok(await grp.locator('.crow .kindtag.aa').count() === 1 && await grp.locator('.crow .kindtag:not(.aa)').count() === 1, '展開後看到撰寫歷程：撰寫計畫＋AA01');
   ok(await page.locator('.ghead >> text=建立AA01').count() === 1, '個案分組上有「建立AA01」');
+  /* 「複評」：整份帶入最近一筆撰寫計畫 */
+  ok(await page.locator('.ghead .gacts button:text-is("複評")').count() === 1, '個案分組上有「複評」');
+  ok((await page.locator('.ghead .gacts button').allInnerTexts()).join(',') === '複評,建立AA01', '按鈕順序：複評在前、建立AA01在後');
+  await page.locator('.ghead .gacts button:text-is("複評")').click();
+  const rv = await page.evaluate(() => { const r = APP._S.rec; return { kind: r.kind, saved: r.saved, vt: r.f.visitType, name: r.f.name, care: JSON.stringify(r.f.pCare.map(l => l.code)), probs: r.f.problems.length, prev: !!r.prev, date: r.f.visitDate, id: r.id }; });
+  ok(rv.kind === 'plan' && rv.vt === '複評' && rv.name === '王大同' && rv.prev && rv.saved === false, '複評：撰寫計畫、訪視類型複評、帶入姓名、保留前次比對、尚未儲存');
+  ok(rv.care !== '[]' && rv.probs > 0, '複評：完整帶入服務規劃與照顧問題 ' + rv.care);
+  ok(await page.locator('.rail a[data-sec="phys"]').count() === 1, '複評使用撰寫計畫的分頁');
+  await page.click('.top >> text=返回首頁');
+  if (await page.locator('.dialog').count()) await page.click('.dialog footer >> text=不儲存，離開');
+  ok((await page.locator('.ghead', { hasText: '王大同' }).innerText()).includes('2 筆'), '複評沒按「儲存」就離開：不新增紀錄');
+  await H.openCase(page, '王大同');
   await grp.locator('.crow:has(.kindtag.aa) >> text=刪除').click(); await page.click('.dialog footer >> text=刪除');
   const [fc] = await Promise.all([page.waitForEvent('filechooser'), page.click('text=匯入存檔')]);
   await fc.setFiles(pdfPath);
@@ -147,6 +159,64 @@ fs.mkdirSync(OUT, { recursive: true });
   }
   await page.evaluate(() => document.querySelector('.rail a[data-sec="aStatus"]').click());
   await page.screenshot({ path: path.join(OUT, 'aa01_phone_status.png'), fullPage: false });
+  /* 個案編號／CMS案號：訪視資訊有兩欄，首頁分組顯示「個案編號001 案號111X19523 王大明」 */
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.click('.top >> text=返回首頁');
+  if (await page.locator('.dialog').count()) await page.click('.dialog footer >> text=不儲存，離開');
+  await page.click('.mode b:text-is("撰寫計畫")');
+  ok(await page.locator('input[aria-label="個案編號"]').count() === 1 && await page.locator('input[aria-label="CMS案號"]').count() === 1, '訪視資訊有「個案編號」「CMS案號」');
+  await page.fill('input[aria-label="個案編號"]', '001');
+  await page.fill('input[aria-label="CMS案號"]', '111X19523');
+  await page.fill('input[aria-label="個案姓名"]', '王大明');
+  await page.click('.top button:text-is("儲存")');
+  await page.click('.top >> text=返回首頁');
+  /* 同姓名、沒填號碼的舊紀錄併入同一組 */
+  await page.evaluate(() => { APP._open(APP._norm({ id: 'old1', f: { name: '王大明', visitDate: '2026-01-05' }, changes: [] })); });
+  await page.click('.top >> text=返回首頁');
+  let heads = await page.locator('.ghead', { hasText: '王大明' }).allInnerTexts();
+  ok(heads.length === 1 && /個案編號001\s*案號111X19523\s*王大明/.test(heads[0]) && heads[0].includes('2 筆'), '沒填號碼的舊紀錄併入同組，顯示：' + heads[0].split(String.fromCharCode(10)).slice(0, 3).join(' '));
+  /* 複評帶入初次撰寫的計畫（115年1月5日那筆，沒填號碼 → 用清單上的號碼補上） */
+  await page.locator('.ghead', { hasText: '111X19523' }).locator('.gacts button:text-is("複評")').click();
+  { const r = await page.evaluate(() => [APP._S.rec.prev.date, APP._S.rec.f.caseNo, APP._S.rec.f.caseId].join(',')); ok(r === '2026-01-05,111X19523,001', '複評帶入初次撰寫的計畫並補上號碼：' + r); }
+  await page.click('.top >> text=返回首頁');
+  if (await page.locator('.dialog').count()) await page.click('.dialog footer >> text=不儲存，離開');
+  /* 同姓名不同案號分開 */
+  await page.evaluate(() => { APP._open(APP._norm({ id: 'oth1', f: { name: '王大明', caseNo: '222Y00001', visitDate: '2026-02-05' }, changes: [] })); });
+  await page.click('.top >> text=返回首頁');
+  ok(await page.locator('.ghead', { hasText: '222Y00001' }).count() === 1 && await page.locator('.ghead', { hasText: '111X19523' }).count() === 1, '同姓名不同案號分成不同組');
+  await page.fill('.casesearch', '111X');
+  ok(await page.locator('.cgroup').count() === 1, '可用案號搜尋');
+  await page.fill('.casesearch', '');
+  /* 複評、AA01 都帶入號碼 */
+  await page.locator('.ghead', { hasText: '111X19523' }).locator('.gacts button:text-is("複評")').click();
+  ok(await page.locator('input[aria-label="CMS案號"]').inputValue() === '111X19523', '複評帶入案號');
+  await page.click('.top >> text=返回首頁');
+  if (await page.locator('.dialog').count()) await page.click('.dialog footer >> text=不儲存，離開');
+  await page.locator('.ghead', { hasText: '111X19523' }).locator('text=建立AA01').click();
+  ok(await page.locator('input[aria-label="個案編號"]').inputValue() === '001', 'AA01 帶入個案編號');
+  /* AA01 服務維持不變：計畫執行規劃以撰寫計畫「產生計畫」最終文字（含手動修改）為準 */
+  if (await page.locator('.dialog').count()) await page.click('.dialog footer >> text=不儲存，離開');
+  await page.click('.top >> text=返回首頁');
+  if (await page.locator('.dialog').count()) await page.click('.dialog footer >> text=不儲存，離開');
+  await page.evaluate(() => {
+    const edited = '於115年10月01日家訪，與個案討論照顧計畫，照顧計畫如下：\n照顧計畫\n1.照顧及專業服務\n【照顧服務】\nBA01基本身體清潔:手動改過的文字\n【專業服務】\n暫無需求。\n2.交通接送服務\n暫無需求。\n3.輔具及居家無障礙環境改善服務:\n暫無需求。\n4.喘息服務(喘息額度區間114.10-115.09)\nGA09居家喘息服務:42單位/年\n個管員：測試個管';
+    APP._open(APP._norm({ id: 'hand1', f: { name: '陳手改', visitDate: '2026-10-01', cmName: '測試個管', pCare: [{ code: 'BA01', name: '基本身體清潔', mode: 'week', n: '3', units: '1' }], pRespite: [{ code: 'GA09', name: '居家喘息服務', units: '42' }], pRespitePeriod: '114.10-115.09', outPlan: edited, outPlanEdited: true }, changes: [] }));
+  });
+  await page.click('.top >> text=返回首頁');
+  await page.locator('.ghead', { hasText: '陳手改' }).locator('text=建立AA01').click();
+  ok((await page.evaluate(() => APP._S.rec.f.aaPlanSvcText || '')).includes('手動改過的文字'), 'AA01 記下撰寫計畫產生計畫裡的服務文字（含手動修改）');
+  await page.click('.rail a[data-sec="aSvc"]');
+  await page.click('[data-fid="aaFreq"] >> text=維持不變');
+  let ap = await page.evaluate(() => NAR.aaPlan(APP._S.rec.f, APP._S.st));
+  const apl = ap.split(String.fromCharCode(10));
+  ok(ap.includes('BA01基本身體清潔:手動改過的文字') && /^於115年11月23日/.test(ap) && apl[apl.length - 1] === '-----' && apl[apl.length - 2] === '個管員：測試個管' && ap.split('個管員').length === 2, 'AA01 計畫執行規劃沿用手動修改的服務文字，開頭改為這次訪視');
+  ok(apl.indexOf('本案喘息額度自114年10月至115年09月。') === apl.indexOf('GA09居家喘息服務:42單位/年') + 1, 'AA01 喘息額度註記接在喘息服務後');
+  await page.click('.rail a[data-sec="plan"]');
+  ok(await page.locator('text=沿用撰寫計畫「產生計畫」裡的服務文字').count() === 1, '服務規劃頁說明沿用文字');
+  await page.click('.rail a[data-sec="aSvc"]');
+  await page.click('[data-fid="aaFreq"] >> text=調整');
+  ap = await page.evaluate(() => NAR.aaPlan(APP._S.rec.f, APP._S.st));
+  ok(!ap.includes('手動改過的文字') && ap.includes('BA01基本身體清潔'), '頻率改為「調整」：改依欄位產生');
   ok(!errors.length, 'no page errors ' + errors.join(' | '));
   await browser.close();
   console.log(failed ? failed + ' FAILED' : 'ALL PASSED'); process.exit(failed ? 1 : 0);

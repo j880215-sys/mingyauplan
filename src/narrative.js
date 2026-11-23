@@ -1025,7 +1025,29 @@ var NAR = (function () {
     out.push(AA_SEP);
     return out.join('\n');
   }
-  function aaPlan(f, st) { return plan(f, st, true); }
+  /* 撰寫計畫「計畫執行規劃」最終文字（含手動修改）中的服務部分：去掉開頭「於…照顧計畫如下：」與結尾「個管員：」 */
+  function planSvcBody(text) {
+    var ls = nz(text).split('\n');
+    if (ls.length && /照顧計畫如下/.test(ls[0])) ls.shift();
+    while (ls.length && (!ls[ls.length - 1].trim() || /^個管員[：:]/.test(ls[ls.length - 1].trim()) || ls[ls.length - 1].trim() === AA_SEP)) ls.pop();
+    return ls.join('\n');
+  }
+  /* 服務規劃欄位產生的服務文字（比對用：欄位和帶入時一樣，才沿用撰寫計畫的最終文字） */
+  function planSvcGen(f, st) { return planSvcBody(plan(f, st)); }
+  function aaUsesPlanText(f, st) {
+    return f.aaFreq === '維持不變' && !!nz(f.aaPlanSvcText) && (!f.aaPlanSvcGen || f.aaPlanSvcGen === planSvcGen(f, st));
+  }
+  /* AA01 計畫執行規劃：服務「維持不變」、已帶入撰寫計畫的服務文字、且服務規劃欄位沒有再修改時，以那段文字為準；否則依欄位產生 */
+  function aaPlan(f, st) {
+    var body = nz(f.aaPlanSvcText);
+    if (!aaUsesPlanText(f, st)) return plan(f, st, true);
+    var ls = body.split('\n'), rn = aaRespiteNote(f);
+    if (rn && ls.indexOf(rn) < 0) {
+      var i = -1; ls.forEach(function (l, k) { if (i < 0 && /^\d+\.喘息服務/.test(l.trim())) i = k; });
+      if (i >= 0) { i++; while (i < ls.length && !/^\d+\./.test(ls[i].trim())) i++; ls.splice(i, 0, rn); } else ls.push(rn);
+    }
+    return ['於' + visitPhrase(f) + '，與' + (participants(f) || '個案') + '討論照顧計畫，照顧計畫如下：'].concat(ls, ['個管員：' + nz(f.cmName), AA_SEP]).join('\n');
+  }
   /* 喘息額度註記：本案喘息額度自114年10月至115年09月。（依喘息額度區間） */
   function aaRespiteNote(f) {
     if (!planLines(f, 'pRespite').length) return '';
@@ -1243,7 +1265,7 @@ var NAR = (function () {
     summary: summary, checks: checks, bmiOf: bmiOf, bmiCat: bmiCat, participants: participants,
     defaultDiscuss: defaultDiscuss, quotaFill: quotaFill, isReview: isReview, planDiff: planDiff, MUSCLE: MUSCLE, MUSCLE_OLD: MUSCLE_OLD, SLOTS: SLOTS, gridDays: gridDays,
     aaStatus: aaStatus, aaCarer: aaCarer, aaSvc: aaSvc, aaProblems: aaProblems, aaGoalLines: aaGoalLines, aaGoalText: aaGoalText, aaPlan: aaPlan, aaNote: aaNote, aaChecks: aaChecks,
-    aaRespiteNote: aaRespiteNote, aaUseFromPlan: aaUseFromPlan, AA_EVAL: AA_EVAL, AA_SEP: AA_SEP,
+    aaRespiteNote: aaRespiteNote, planSvcBody: planSvcBody, planSvcGen: planSvcGen, aaUsesPlanText: aaUsesPlanText, aaUseFromPlan: aaUseFromPlan, AA_EVAL: AA_EVAL, AA_SEP: AA_SEP,
     updateTexts: updateTexts, updateChecks: updateChecks, upLineText: upLineText, upAct: upAct, UP_ACTS: UP_ACTS
   };
 })();

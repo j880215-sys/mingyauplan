@@ -16,6 +16,8 @@ var SCHEMA = (function () {
         { id: 'withCM', type: 'single', label: '與照專一同家訪', options: ['是', '否'], add: true }
       ] },
       { label: '個案', fields: [
+        { id: 'caseId', type: 'text', label: '個案編號', w: '7em', ph: '如 001' },
+        { id: 'caseNo', type: 'text', label: 'CMS案號', w: '10em', ph: '如 111X19523' },
         { id: 'name', type: 'text', label: '個案姓名', w: '10em' },
         { id: 'gender', type: 'single', label: '性別', options: ['男', '女'] },
         { id: 'birthYear', type: 'byear', label: '出生年次／年齡' },
@@ -311,7 +313,7 @@ var SCHEMA = (function () {
   var aaSections = [
     { id: 'aBasic', group: '壹', nav: '訪視資訊', title: '壹、訪視資訊', rows: [
       { label: '訪視', fields: [pick('visitDate'), pick('withCM')] },
-      { label: '個案', fields: [pick('name'), pick('cms'), pick('identity')] },
+      { label: '個案', fields: [pick('caseId'), pick('caseNo'), pick('name'), pick('cms'), pick('identity')] },
       sections[0].rows.filter(function (r) { return r.label === '在場人員'; })[0],
       { label: '個管員', fields: [pick('cmName')] }
     ] },

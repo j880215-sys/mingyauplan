@@ -72,7 +72,7 @@ var APP = (function () {
     return { id: UI.uid(), kind: 'aa01', saved: false, createdAt: Date.now(), updatedAt: Date.now(), changes: [], f: f };
   }
   function isAA(rec) { return !!(rec || S.rec) && (rec || S.rec).kind === 'aa01'; }
-  var AA_CARRY = ['name', 'cms', 'identity', 'withCM', 'clientJoin', 'attendees', 'address', 'phone', 'cmName', 'problems', 'pCare', 'pPro', 'pTrans', 'pTransAmt', 'pVendors',
+  var AA_CARRY = ['caseId', 'caseNo', 'name', 'cms', 'identity', 'withCM', 'clientJoin', 'attendees', 'address', 'phone', 'cmName', 'problems', 'pCare', 'pPro', 'pTrans', 'pTransAmt', 'pVendors',
     'pAids', 'pRespite', 'pRespitePeriod', 'pShort', 'pShortPeriod', 'pOther', 'careFlags', 'careFlagNote', 'goalVar', 'aaCarerRel', 'aaCarerLoad', 'aaHelp', 'aaHelpNote'];
   /* AA01 參考用的前次照顧問題：建立時帶入的；沒有的話找清單中同姓名最近一筆撰寫計畫 */
   /* 這位個案的撰寫計畫紀錄：建立 AA01 時的來源；沒有的話找清單中同姓名最近一筆 */
@@ -95,6 +95,13 @@ var APP = (function () {
     var c = JSON.parse(JSON.stringify(src.f));
     PLAN_KEYS.forEach(function (k) { if (c[k] !== undefined) f[k] = c[k]; else delete f[k]; });
     arr(f.pCare).concat(arr(f.pPro), arr(f.pAids), arr(f.pRespite), arr(f.pShort), arr(f.pOther)).forEach(function (l) { l.id = UI.uid(); });
+    f.aaPlanSvcText = svcTextOf(src); f.aaPlanSvcGen = NAR.planSvcGen(f, S.st);
+  }
+  /* 撰寫計畫「產生計畫」裡計畫執行規劃的最終文字（有手動修改就用修改後的），只取服務部分 */
+  function svcTextOf(src) {
+    if (!src || !src.f) return '';
+    if ((src.kind || 'plan') !== 'plan') return nz(src.f.aaPlanSvcText);
+    return NAR.planSvcBody(src.f.outPlanEdited && nz(src.f.outPlan) ? src.f.outPlan : NAR.plan(src.f, S.st));
   }
   function cloneForAA(rec) {
     var n = newAA(), src = JSON.parse(JSON.stringify(rec.f));
@@ -108,7 +115,24 @@ var APP = (function () {
     }
     n.f.visitDate = today(); n.f.cmName = nz(src.cmName) || S.st.cmName;
     n.from = { id: rec.id, kind: rec.kind || 'plan', date: src.visitDate || '' };
+    n.f.aaPlanSvcText = svcTextOf(rec); n.f.aaPlanSvcGen = NAR.planSvcGen(n.f, S.st);
     openRec(n); saveNow(); UI.toast('已帶入「' + (nz(src.name) || '未命名') + '」的資料，請修改這次有變動的地方');
+  }
+  /* 複評：整份帶入這位個案初次撰寫的計畫（最早一筆撰寫計畫），訪視類型改為複評、日期改今天；屬新紀錄，按「儲存」才存入。
+     ids：清單上這位個案的個案編號／案號，初次計畫沒填時補上 */
+  function cloneForReview(rec, ids) {
+    var n = JSON.parse(JSON.stringify(rec));
+    n.id = UI.uid(); n.kind = 'plan'; n.saved = false; n.createdAt = n.updatedAt = Date.now(); n.changes = [];
+    delete n.from; delete n.prevProblems;
+    /* 保留前次內容供比對（不含手繪圖與已產出的文字，避免檔案過大） */
+    var pf = JSON.parse(JSON.stringify(rec.f)); delete pf.genogram; delete pf.outGoal; delete pf.outPlan;
+    n.prev = { date: rec.f.visitDate || '', f: pf };
+    delete n.f.rvPlan;
+    n.f.visitDate = today(); n.f.visitType = '複評'; n.f.svcStatus = '使用服務中個案';
+    n.f.cmName = nz(rec.f.cmName) || S.st.cmName;
+    if (ids) { if (!nz(n.f.caseId) && ids.caseId) n.f.caseId = ids.caseId; if (!nz(n.f.caseNo) && ids.caseNo) n.f.caseNo = ids.caseNo; }
+    delete n.f.outGoal; delete n.f.outPlan; n.f.outGoalEdited = false; n.f.outPlanEdited = false;
+    openRec(n); saveNow(); UI.toast('已帶入「' + (nz(rec.f.name) || '未命名') + '」初次撰寫計畫（' + (NAR.rocLong(rec.f.visitDate) || '日期未填') + '）的全部內容，請修改有變動的地方');
   }
   UI.refDate.fn = function () { return S.rec && S.rec.f ? S.rec.f.visitDate : ''; };
   function isUpd(rec) { return !!(rec || S.rec) && (rec || S.rec).kind === 'update'; }
@@ -136,7 +160,7 @@ var APP = (function () {
     delete rec.f.rvMode; delete rec.f.rvCond; delete rec.draftChange;      /* 複評摘要版、舊的異動草稿已整併到「計畫更新／異動」 */
     return rec;
   }
-  function metaOf(rec) { return { id: rec.id, kind: rec.kind || 'plan', name: nz(rec.f.name) || '（未填姓名）', caseNo: nz(rec.f.caseNo), date: rec.f.visitDate || '', updatedAt: rec.updatedAt }; }
+  function metaOf(rec) { return { id: rec.id, kind: rec.kind || 'plan', name: nz(rec.f.name) || '（未填姓名）', caseNo: nz(rec.f.caseNo), caseId: nz(rec.f.caseId), date: rec.f.visitDate || '', updatedAt: rec.updatedAt }; }
   function saveNow() {
     if (!S.rec) return;
     clearTimeout(S.timer); S.timer = null;
@@ -453,7 +477,7 @@ var APP = (function () {
     S.rec = null; E = {};
     var app = clear(document.getElementById('app'));
     /* 個案清單：同一位個案（有案號用案號，否則用姓名）收合成一組，點開看撰寫歷程 */
-    var list = h('div', { class: 'caselist' }), q = h('input', { class: 'inp casesearch', type: 'search', placeholder: '搜尋個案姓名', 'aria-label': '搜尋個案', value: S.caseQ || '' });
+    var list = h('div', { class: 'caselist' }), q = h('input', { class: 'inp casesearch', type: 'search', placeholder: '搜尋姓名、個案編號或案號', 'aria-label': '搜尋個案', value: S.caseQ || '' });
     q.addEventListener('input', function () { S.caseQ = q.value; drawList(); });
     drawList();
     app.appendChild(h('div', { class: 'homewrap' }, [
@@ -483,13 +507,29 @@ var APP = (function () {
       clear(list);
       if (!S.idx.length) { list.appendChild(h('div', { class: 'emptynote', text: '還沒有個案。按上方兩個按鈕開始，或用「匯入存檔」打開之前存的檔案。' })); return; }
       var kw = nz(S.caseQ).toLowerCase(), groups = {}, order = [];
+      /* 依姓名分組；同姓名但案號（或個案編號）不同的分開；沒填號碼的舊紀錄併入同姓名唯一有號碼的那一組 */
       S.idx.forEach(function (m) {
-        var key = nz(m.caseNo) ? 'no:' + nz(m.caseNo) : 'name:' + nz(m.name);
-        if (!groups[key]) { groups[key] = { key: key, name: m.name, caseNo: nz(m.caseNo), recs: [], last: 0 }; order.push(key); }
+        var no = (nz(m.caseNo) || nz(m.caseId)).toUpperCase(), key = 'name:' + nz(m.name) + '|' + no;
+        if (!groups[key]) { groups[key] = { key: key, name: m.name, no: no, caseNo: '', caseId: '', recs: [], last: 0, numAt: -1 }; order.push(key); }
         groups[key].recs.push(m); groups[key].last = Math.max(groups[key].last, m.updatedAt || 0);
       });
+      order.slice().forEach(function (k) {
+        var g = groups[k]; if (g.no) return;
+        var mates = order.filter(function (k2) { return groups[k2].no && groups[k2].name === g.name; });
+        if (mates.length !== 1) return;
+        var t = groups[mates[0]]; t.recs = t.recs.concat(g.recs); t.last = Math.max(t.last, g.last);
+        delete groups[k]; order.splice(order.indexOf(k), 1);
+      });
+      /* 顯示的個案編號／案號：取最近修改且有填的那筆 */
+      order.forEach(function (k) {
+        var g = groups[k];
+        g.recs.slice().sort(function (a, b) { return (b.updatedAt || 0) - (a.updatedAt || 0); }).forEach(function (m) {
+          if (!g.caseNo && nz(m.caseNo)) g.caseNo = nz(m.caseNo);
+          if (!g.caseId && nz(m.caseId)) g.caseId = nz(m.caseId);
+        });
+      });
       var gs = order.map(function (k) { return groups[k]; })
-        .filter(function (g) { return !kw || (g.name + ' ' + g.caseNo).toLowerCase().indexOf(kw) >= 0; })
+        .filter(function (g) { return !kw || (g.name + ' ' + g.caseNo + ' ' + g.caseId).toLowerCase().indexOf(kw) >= 0; })
         .sort(function (a, b) { return b.last - a.last; });
       if (!gs.length) { list.appendChild(h('div', { class: 'emptynote', text: '找不到符合「' + S.caseQ + '」的個案。' })); return; }
       S.openGroups = S.openGroups || {};
@@ -497,14 +537,20 @@ var APP = (function () {
         /* 歷程：依訪視日期由新到舊 */
         g.recs.sort(function (a, b) { return (b.date || '').localeCompare(a.date || '') || (b.updatedAt || 0) - (a.updatedAt || 0); });
         var open = !!S.openGroups[g.key], latest = g.recs[0], base = g.recs.filter(function (m) { return m.kind !== 'update'; })[0];
+        /* 初次撰寫的計畫：訪視日期最早的撰寫計畫（日期相同取較早建立） */
+        var firstPlan = g.recs.filter(function (m) { return (m.kind || 'plan') === 'plan'; })
+          .sort(function (a, b) { return (a.date || '9999').localeCompare(b.date || '9999') || (a.updatedAt || 0) - (b.updatedAt || 0); })[0];
         var body = h('div', { class: 'gbody', hidden: !open });
         g.recs.forEach(function (m) { body.appendChild(recRow(m)); });
         var head = h('div', { class: 'ghead', role: 'button', tabindex: '0', 'aria-expanded': open ? 'true' : 'false', onclick: toggle, onkeydown: function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } } }, [
           h('span', { class: 'chev', 'aria-hidden': 'true' }),
           h('div', { class: 'gmain' }, [
-            h('div', { class: 'cname' }, [g.name, g.caseNo ? h('span', { class: 'caseno', text: '案號 ' + g.caseNo }) : null, h('span', { class: 'gcount', text: g.recs.length + ' 筆' })]),
+            h('div', { class: 'cname' }, [g.caseId ? h('span', { class: 'caseno', text: '個案編號' + g.caseId }) : null, g.caseNo ? h('span', { class: 'caseno', text: '案號' + g.caseNo }) : null, h('span', { class: 'gname', text: g.name }), h('span', { class: 'gcount', text: g.recs.length + ' 筆' })]),
             h('div', { class: 'cmeta', text: '最近：' + kindName(latest) + (NAR.rocLong(latest.date) ? '　' + NAR.rocLong(latest.date) : '') })]),
-          base ? h('button', { type: 'button', class: 'btn sm', text: '建立AA01', title: '以這位個案最近一筆紀錄帶入資料，建立新的 AA01', onclick: function (e) { e.stopPropagation(); var r = store.get(K.rec + base.id); if (r) cloneForAA(normalize(r)); } }) : null
+          h('div', { class: 'gacts' }, [
+            firstPlan ? h('button', { type: 'button', class: 'btn sm', text: '複評', title: '帶入這位個案初次撰寫計畫的全部內容，建立新的複評', onclick: function (e) { e.stopPropagation(); var r = store.get(K.rec + firstPlan.id); if (r) cloneForReview(normalize(r), { caseId: g.caseId, caseNo: g.caseNo }); } }) : null,
+            base ? h('button', { type: 'button', class: 'btn sm', text: '建立AA01', title: '以這位個案最近一筆紀錄帶入資料，建立新的 AA01', onclick: function (e) { e.stopPropagation(); var r = store.get(K.rec + base.id); if (r) cloneForAA(normalize(r)); } }) : null
+          ])
         ]);
         var grp = h('div', { class: 'cgroup' + (open ? ' open' : '') }, [head, body]);
         function toggle() { open = !open; S.openGroups[g.key] = open; body.hidden = !open; grp.classList.toggle('open', open); head.setAttribute('aria-expanded', open ? 'true' : 'false'); }
@@ -1019,7 +1065,10 @@ var APP = (function () {
         src ? h('button', { type: 'button', class: 'btn', text: '套入前次撰寫計畫的服務規劃', onclick: function () {
           function go() { applyPlanFrom(src, f); changed(); showSection('plan'); UI.toast('已套入' + (when ? when + '的' : '') + '撰寫計畫服務內容'); }
           if (planEmpty(f)) go(); else UI.confirmBox('套入前次服務規劃', '這頁已經有內容，套入會以前次撰寫計畫的服務規劃取代，確定嗎？', '套入', go);
-        } }) : null]));
+        } }) : null,
+        f.aaFreq === '維持不變' && nz(f.aaPlanSvcText) ? h('p', { class: 'tip', text: NAR.aaUsesPlanText(f, S.st)
+          ? '服務頻率為「維持不變」：AA01 的計畫執行規劃沿用撰寫計畫「產生計畫」裡的服務文字（含當時手動修改）。下方欄位一有修改，就會改依欄位重新產生。'
+          : '下方服務規劃已經修改過，AA01 的計畫執行規劃改依下方欄位產生（不再沿用撰寫計畫的文字）。' }) : null]));
     }
     if (f.careFlags === undefined && f.foreign === '有') f.careFlags = ['聘有外籍看護'];
     var flags = h('div', { class: 'fields', style: 'padding:0 0 14px' }, [
@@ -1377,7 +1426,7 @@ var APP = (function () {
   function openHelp() {
     var d = h('div', { class: 'helpdoc' });
     function sec(t, items, ordered) { d.appendChild(h('h3', { text: t })); d.appendChild(h(ordered ? 'ol' : 'ul', null, items.map(function (x) { return h('li', { text: x }); }))); }
-    sec('首頁兩個入口', ['「撰寫計畫」：初評、出備初評、複評，依訪視評估表從頭寫出完整計畫。',
+    sec('首頁兩個入口', ['「撰寫計畫」：初評、出備初評、複評，依訪視評估表從頭寫出完整計畫。個案清單上的「複評」會帶入這位個案初次撰寫計畫的全部內容，訪視類型改為複評。',
       '「AA01」：舊計畫保留，新內容貼在 CMS 各欄位最上方，與舊紀錄以「-----」區隔。']);
     sec('撰寫計畫的流程', [
       '按「撰寫計畫」。',
@@ -1480,5 +1529,5 @@ var APP = (function () {
     if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) { try { navigator.serviceWorker.register('sw.js').catch(function () { }); } catch (e) { } }
     renderHome();
   }
-  return { init: init, _writeToFolder: writeToFolder, _caseFiles: caseFiles, _caseNames: caseNames, _import: importRec, _jump: jumpTo, _S: S, _open: openRec, _new: newRecord, _show: function (id) { showSection(id); }, _norm: normalize, _formHtml: formHtml };
+  return { init: init, _writeToFolder: writeToFolder, _caseFiles: caseFiles, _caseNames: caseNames, _import: importRec, _jump: jumpTo, _S: S, _open: openRec, _new: newRecord, _show: function (id) { showSection(id); }, _norm: normalize, _formHtml: formHtml, _pdfDoms: function (r) { return { form: buildFormDom(r).innerText || buildFormDom(r).textContent, plan: isAA(r) ? '' : buildPlanDom(r).textContent }; } };
 })();

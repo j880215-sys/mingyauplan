@@ -42,6 +42,7 @@ node test/grid_test.js      # 週間排程表
 node test/age_test.js       # 出生年次換算年齡
 node test/cloud_test.js     # 雲端：加密存放、舊資料上傳、換裝置、離線、密碼更換、刪除、登出
 node test/new_test.js       # 額度帶入、目標換寫法、跳到未填欄位、身障選項、複評比對、交通單位簡稱轉換
+node test/output_test.js    # 存成 PDF 的兩段＝產生計畫最終文字（含手動修改）：新計畫、複評、AA01
 ```
 瀏覽器測試需要 Playwright：`npm install`（依 package.json）後執行 `npx playwright install chromium`。`node_modules/` 只供本機測試，不會打包進成品。
 
